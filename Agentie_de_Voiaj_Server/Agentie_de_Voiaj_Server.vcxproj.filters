@@ -19,4 +19,13 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="sql\extra.sql" />
+    <None Include="sql\indexes.sql" />
+    <None Include="sql\stored_procedures.sql" />
+    <None Include="sql\tables.sql" />
+    <None Include="sql\triggers.sql" />
+    <None Include="sql\views.sql" />
+    <None Include="sql\data_insertion.sql" />
+  </ItemGroup>
 </Project>

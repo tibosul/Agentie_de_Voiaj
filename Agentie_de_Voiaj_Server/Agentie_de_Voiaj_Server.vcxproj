@@ -125,6 +125,15 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="sql\data_insertion.sql" />
+    <None Include="sql\extra.sql" />
+    <None Include="sql\indexes.sql" />
+    <None Include="sql\stored_procedures.sql" />
+    <None Include="sql\tables.sql" />
+    <None Include="sql\triggers.sql" />
+    <None Include="sql\views.sql" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
