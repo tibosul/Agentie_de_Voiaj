@@ -28,4 +28,9 @@
     <None Include="sql\views.sql" />
     <None Include="sql\data_insertion.sql" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="config.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>
