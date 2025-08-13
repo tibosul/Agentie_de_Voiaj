@@ -896,12 +896,12 @@ Protocol_Handler::Protocol_Handler(std::shared_ptr<Database::Database_Manager> d
 {
 }
 
-Protocol_Handler::Parsed_Message Protocol_Handler::parse_message(const std::string& message)
+Protocol_Handler::Parsed_Message Protocol_Handler::parse_message(const std::string& json_message)
 {
     Parsed_Message parsed;
-    parsed.raw_message = message;
+    parsed.raw_message = json_message;
     
-    if (message.empty())
+    if (json_message.empty())
     {
         parsed.error_message = Config::ErrorMessages::INVALID_REQUEST;
         return parsed;
@@ -909,39 +909,39 @@ Protocol_Handler::Parsed_Message Protocol_Handler::parse_message(const std::stri
     
     try 
     {
-        // Simple protocol: COMMAND|param1=value1|param2=value2|...
-        std::vector<std::string> parts = Utils::String::split(message, '|');
+        nlohmann::json msg_json = nlohmann::json::parse(json_message);
+        parsed.json_data = msg_json;
         
-        if (parts.empty())
+        // Extract command/type from JSON
+        if (!msg_json.contains("type") && !msg_json.contains("command"))
         {
-            parsed.error_message = Config::ErrorMessages::INVALID_REQUEST;
+            parsed.error_message = "Missing 'type' or 'command' field in JSON message";
             return parsed;
         }
         
-        std::string command = Utils::String::to_upper(Utils::String::trim(parts[0]));
-        parsed.type = get_message_type(command);
+        parsed.type = get_message_type(msg_json);
         
         if (parsed.type == Message_Type::UNKNOWN)
         {
+            std::string command;
+            if (msg_json.contains("type"))
+            {
+                command = msg_json["type"].get<std::string>();
+            }
+            else
+            {
+                command = msg_json["command"].get<std::string>();
+            }
             parsed.error_message = "Unknown command: " + command;
             return parsed;
         }
         
-        // Parse parameters
-        for (size_t i = 1; i < parts.size(); i++)
-        {
-            std::string param = Utils::String::trim(parts[i]);
-            size_t eq_pos = param.find('=');
-            
-            if (eq_pos != std::string::npos)
-            {
-                std::string key = Utils::String::trim(param.substr(0, eq_pos));
-                std::string value = Utils::String::trim(param.substr(eq_pos + 1));
-                parsed.parameters[key] = value;
-            }
-        }
-        
         parsed.is_valid = true;
+        return parsed;
+    }
+    catch (const nlohmann::json::parse_error& e)
+    {
+        parsed.error_message = "JSON parse error: " + std::string(e.what());
         return parsed;
     }
     catch (const std::exception& e)
@@ -951,27 +951,50 @@ Protocol_Handler::Parsed_Message Protocol_Handler::parse_message(const std::stri
     }
 }
 
-Protocol_Handler::Message_Type Protocol_Handler::get_message_type(const std::string& message)
+Protocol_Handler::Message_Type Protocol_Handler::get_message_type(const nlohmann::json& json_obj)
 {
-    std::string cmd = Utils::String::to_upper(Utils::String::trim(message));
-    
-    if (cmd == "AUTH" || cmd == "LOGIN") return Message_Type::AUTHENTICATION;
-    if (cmd == "REGISTER" || cmd == "SIGNUP") return Message_Type::REGISTRATION;
-    if (cmd == "GET_DESTINATIONS") return Message_Type::GET_DESTINATIONS;
-    if (cmd == "GET_OFFERS") return Message_Type::GET_OFFERS;
-    if (cmd == "SEARCH_OFFERS") return Message_Type::SEARCH_OFFERS;
-    if (cmd == "BOOK_OFFER") return Message_Type::BOOK_OFFER;
-    if (cmd == "GET_USER_RESERVATIONS") return Message_Type::GET_USER_RESERVATIONS;
-    if (cmd == "CANCEL_RESERVATION") return Message_Type::CANCEL_RESERVATION;
-    if (cmd == "GET_USER_INFO") return Message_Type::GET_USER_INFO;
-    if (cmd == "UPDATE_USER_INFO") return Message_Type::UPDATE_USER_INFO;
-    if (cmd == "ADMIN_GET_STATS") return Message_Type::ADMIN_GET_STATS;
-    if (cmd == "ADMIN_GET_USERS") return Message_Type::ADMIN_GET_USERS;
-    if (cmd == "ADMIN_MANAGE_OFFERS") return Message_Type::ADMIN_MANAGE_OFFERS;
-    if (cmd == "KEEPALIVE" || cmd == "PING") return Message_Type::KEEPALIVE;
-    if (cmd == "ERROR") return Message_Type::ERR;
-    
-    return Message_Type::UNKNOWN;
+    try
+    {
+        std::string command;
+        if (json_obj.contains("type"))
+        {
+            command = json_obj["type"].get<std::string>();
+        }
+        else if (json_obj.contains("command"))
+        {
+            command = json_obj["command"].get<std::string>();
+        }
+        else
+        {
+            return Message_Type::UNKNOWN;
+        }
+        
+        // Convert to uppercase for comparison
+        std::string cmd = Utils::String::to_upper(Utils::String::trim(command));
+        
+        if (cmd == "AUTH" || cmd == "LOGIN") return Message_Type::AUTHENTICATION;
+        if (cmd == "REGISTER" || cmd == "SIGNUP") return Message_Type::REGISTRATION;
+        if (cmd == "GET_DESTINATIONS") return Message_Type::GET_DESTINATIONS;
+        if (cmd == "GET_OFFERS") return Message_Type::GET_OFFERS;
+        if (cmd == "SEARCH_OFFERS") return Message_Type::SEARCH_OFFERS;
+        if (cmd == "BOOK_OFFER") return Message_Type::BOOK_OFFER;
+        if (cmd == "GET_USER_RESERVATIONS") return Message_Type::GET_USER_RESERVATIONS;
+        if (cmd == "CANCEL_RESERVATION") return Message_Type::CANCEL_RESERVATION;
+        if (cmd == "GET_USER_INFO") return Message_Type::GET_USER_INFO;
+        if (cmd == "UPDATE_USER_INFO") return Message_Type::UPDATE_USER_INFO;
+        // Admin commands not supported in college project scope
+        // if (cmd == "ADMIN_GET_STATS") return Message_Type::ADMIN_GET_STATS;
+        // if (cmd == "ADMIN_GET_USERS") return Message_Type::ADMIN_GET_USERS;
+        // if (cmd == "ADMIN_MANAGE_OFFERS") return Message_Type::ADMIN_MANAGE_OFFERS;
+        if (cmd == "KEEPALIVE" || cmd == "PING") return Message_Type::KEEPALIVE;
+        if (cmd == "ERROR") return Message_Type::ERR;
+        
+        return Message_Type::UNKNOWN;
+    }
+    catch (const std::exception&)
+    {
+        return Message_Type::UNKNOWN;
+    }
 }
 
 std::string Protocol_Handler::message_type_to_string(Message_Type type)
@@ -988,9 +1011,10 @@ std::string Protocol_Handler::message_type_to_string(Message_Type type)
         case Message_Type::CANCEL_RESERVATION: return "CANCEL_RESERVATION";
         case Message_Type::GET_USER_INFO: return "GET_USER_INFO";
         case Message_Type::UPDATE_USER_INFO: return "UPDATE_USER_INFO";
-        case Message_Type::ADMIN_GET_STATS: return "ADMIN_GET_STATS";
-        case Message_Type::ADMIN_GET_USERS: return "ADMIN_GET_USERS";
-        case Message_Type::ADMIN_MANAGE_OFFERS: return "ADMIN_MANAGE_OFFERS";
+        // Admin message types not supported in college project scope
+        // case Message_Type::ADMIN_GET_STATS: return "ADMIN_GET_STATS";
+        // case Message_Type::ADMIN_GET_USERS: return "ADMIN_GET_USERS"; 
+        // case Message_Type::ADMIN_MANAGE_OFFERS: return "ADMIN_MANAGE_OFFERS";
         case Message_Type::KEEPALIVE: return "KEEPALIVE";
         case Message_Type::ERR: return "ERROR";
         case Message_Type::UNKNOWN: return "UNKNOWN";
@@ -1042,14 +1066,13 @@ Protocol_Handler::Response Protocol_Handler::process_message(const Parsed_Messag
             case Message_Type::KEEPALIVE:
                 return handle_keepalive(parsed_message, client_handler);
             
-            case Message_Type::ADMIN_GET_STATS:
-                return handle_admin_get_stats(parsed_message, client_handler);
-            
-            case Message_Type::ADMIN_GET_USERS:
-                return handle_admin_get_users(parsed_message, client_handler);
-            
-            case Message_Type::ADMIN_MANAGE_OFFERS:
-                return handle_admin_manage_offers(parsed_message, client_handler);
+            // Admin functions not implemented for college project scope
+            // case Message_Type::ADMIN_GET_STATS:
+            //     return handle_admin_get_stats(parsed_message, client_handler);
+            // case Message_Type::ADMIN_GET_USERS:
+            //     return handle_admin_get_users(parsed_message, client_handler);
+            // case Message_Type::ADMIN_MANAGE_OFFERS:
+            //     return handle_admin_manage_offers(parsed_message, client_handler);
             
             default:
                 return Response(false, "Unsupported message type");
@@ -1064,33 +1087,52 @@ Protocol_Handler::Response Protocol_Handler::process_message(const Parsed_Messag
 std::string Protocol_Handler::create_response(bool success, const std::string& message,
     const std::string& data, int error_code)
 {
-    if (success)
+    nlohmann::json response;
+    response["success"] = success;
+    response["message"] = message;
+    
+    if (success && !data.empty())
     {
-        return Utils::JSON::create_success_response(data, message);
+        try
+        {
+            // Try to parse data as JSON, if it fails treat as string
+            response["data"] = nlohmann::json::parse(data);
+        }
+        catch (const nlohmann::json::parse_error&)
+        {
+            response["data"] = data;
+        }
     }
-    else 
+    else if (success)
     {
-        return Utils::JSON::create_error_response(message, error_code);
+        response["data"] = nlohmann::json::object();
     }
+    
+    if (!success && error_code != 0)
+    {
+        response["error_code"] = error_code;
+    }
+    
+    return response.dump();
 }
 
 Protocol_Handler::Response Protocol_Handler::handle_authentication(const Parsed_Message& message, Client_Handler* client)
 {
-    std::string error_msg;
-    if (!validate_required_parameters(message, {"username", "password"}, error_msg))
-    {
-        return Response(false, error_msg);
-    }
-    
     if (!db_manager)
     {
         return Response(false, Config::ErrorMessages::DB_CONNECTION_FAILED);
     }
     
+    // Check required fields in JSON
+    if (!message.json_data.contains("username") || !message.json_data.contains("password"))
+    {
+        return Response(false, "Missing required fields: username, password");
+    }
+    
     try 
     {
-        std::string username = message.parameters.at("username");
-        std::string password = message.parameters.at("password");
+        std::string username = message.json_data["username"].get<std::string>();
+        std::string password = message.json_data["password"].get<std::string>();
         
         auto result = db_manager->authenticate_user(username, password);
         
@@ -1099,8 +1141,13 @@ Protocol_Handler::Response Protocol_Handler::handle_authentication(const Parsed_
             int user_id = Utils::Conversion::string_to_int(result.data[0]["ID"]);
             client->set_authenticated(user_id, username);
             
-            std::string user_data = map_to_json(result.data[0]);
-            return Response(true, Config::SuccessMessages::LOGIN_SUCCESS, user_data);
+            nlohmann::json user_data;
+            for (const auto& pair : result.data[0])
+            {
+                user_data[pair.first] = pair.second;
+            }
+            
+            return Response(true, Config::SuccessMessages::LOGIN_SUCCESS, user_data.dump());
         }
         else 
         {
@@ -1115,29 +1162,33 @@ Protocol_Handler::Response Protocol_Handler::handle_authentication(const Parsed_
 
 Protocol_Handler::Response Protocol_Handler::handle_registration(const Parsed_Message& message, Client_Handler* client)
 {
-    std::string error_msg;
-    if (!validate_required_parameters(message, {"username", "password", "email", "first_name", "last_name"}, error_msg))
-    {
-        return Response(false, error_msg);
-    }
-    
     if (!db_manager)
     {
         return Response(false, Config::ErrorMessages::DB_CONNECTION_FAILED);
     }
     
+    // Check required fields in JSON
+    const std::vector<std::string> required_fields = {"username", "password", "email", "first_name", "last_name"};
+    for (const auto& field : required_fields)
+    {
+        if (!message.json_data.contains(field))
+        {
+            return Response(false, "Missing required field: " + field);
+        }
+    }
+    
     try 
     {
         User_Data user_data;
-        user_data.username = message.parameters.at("username");
-        user_data.password_hash = message.parameters.at("password"); // Will be hashed in DB layer
-        user_data.email = message.parameters.at("email");
-        user_data.first_name = message.parameters.at("first_name");
-        user_data.last_name = message.parameters.at("last_name");
+        user_data.username = message.json_data["username"].get<std::string>();
+        user_data.password_hash = message.json_data["password"].get<std::string>(); // Will be hashed in DB layer
+        user_data.email = message.json_data["email"].get<std::string>();
+        user_data.first_name = message.json_data["first_name"].get<std::string>();
+        user_data.last_name = message.json_data["last_name"].get<std::string>();
         
-        if (message.parameters.count("phone_number"))
+        if (message.json_data.contains("phone_number"))
         {
-            user_data.phone_number = message.parameters.at("phone_number");
+            user_data.phone_number = message.json_data["phone_number"].get<std::string>();
         }
         
         auto result = db_manager->register_user(user_data);
@@ -1220,11 +1271,11 @@ Protocol_Handler::Response Protocol_Handler::handle_search_offers(const Parsed_M
     
     try 
     {
-        std::string destination = message.parameters.count("destination") ? message.parameters.at("destination") : "";
-        double min_price = message.parameters.count("min_price") ? Utils::Conversion::string_to_double(message.parameters.at("min_price")) : 0.0;
-        double max_price = message.parameters.count("max_price") ? Utils::Conversion::string_to_double(message.parameters.at("max_price")) : 0.0;
-        std::string start_date = message.parameters.count("start_date") ? message.parameters.at("start_date") : "";
-        std::string end_date = message.parameters.count("end_date") ? message.parameters.at("end_date") : "";
+        std::string destination = message.json_data.contains("destination") ? message.json_data["destination"].get<std::string>() : "";
+        double min_price = message.json_data.contains("min_price") ? message.json_data["min_price"].get<double>() : 0.0;
+        double max_price = message.json_data.contains("max_price") ? message.json_data["max_price"].get<double>() : 0.0;
+        std::string start_date = message.json_data.contains("start_date") ? message.json_data["start_date"].get<std::string>() : "";
+        std::string end_date = message.json_data.contains("end_date") ? message.json_data["end_date"].get<std::string>() : "";
         
         auto result = db_manager->search_offers(destination, min_price, max_price, start_date, end_date);
         
@@ -1251,22 +1302,20 @@ Protocol_Handler::Response Protocol_Handler::handle_book_offer(const Parsed_Mess
         return Response(false, Config::ErrorMessages::AUTHENTICATION_FAILED);
     }
     
-    std::string error_msg;
-    if (!validate_required_parameters(message, {"offer_id"}, error_msg))
-    {
-        return Response(false, error_msg);
-    }
-    
     if (!db_manager)
     {
         return Response(false, Config::ErrorMessages::DB_CONNECTION_FAILED);
     }
     
+    if (!message.json_data.contains("offer_id"))
+    {
+        return Response(false, "Missing required field: offer_id");
+    }
+    
     try 
     {
-        int offer_id = Utils::Conversion::string_to_int(message.parameters.at("offer_id"));
-        int person_count = message.parameters.count("person_count") ? 
-                          Utils::Conversion::string_to_int(message.parameters.at("person_count")) : 1;
+        int offer_id = message.json_data["offer_id"].get<int>();
+        int person_count = message.json_data.contains("person_count") ? message.json_data["person_count"].get<int>() : 1;
         
         // Validate person count
         if (person_count < 1 || person_count > Config::Business::MAX_PERSONS_PER_RESERVATION)
@@ -1330,20 +1379,19 @@ Protocol_Handler::Response Protocol_Handler::handle_cancel_reservation(const Par
         return Response(false, Config::ErrorMessages::AUTHENTICATION_FAILED);
     }
     
-    std::string error_msg;
-    if (!validate_required_parameters(message, {"reservation_id"}, error_msg))
-    {
-        return Response(false, error_msg);
-    }
-    
     if (!db_manager)
     {
         return Response(false, Config::ErrorMessages::DB_CONNECTION_FAILED);
     }
     
+    if (!message.json_data.contains("reservation_id"))
+    {
+        return Response(false, "Missing required field: reservation_id");
+    }
+    
     try 
     {
-        int reservation_id = Utils::Conversion::string_to_int(message.parameters.at("reservation_id"));
+        int reservation_id = message.json_data["reservation_id"].get<int>();
         
         auto result = db_manager->cancel_reservation(reservation_id);
         
@@ -1380,8 +1428,12 @@ Protocol_Handler::Response Protocol_Handler::handle_get_user_info(const Parsed_M
         
         if (result.is_success() && result.has_data())
         {
-            std::string user_data = map_to_json(result.data[0]);
-            return Response(true, Config::SuccessMessages::DATA_RETRIEVED, user_data);
+            nlohmann::json user_data;
+            for (const auto& pair : result.data[0])
+            {
+                user_data[pair.first] = pair.second;
+            }
+            return Response(true, Config::SuccessMessages::DATA_RETRIEVED, user_data.dump());
         }
         else 
         {
@@ -1421,14 +1473,14 @@ Protocol_Handler::Response Protocol_Handler::handle_update_user_info(const Parse
         user_data.password_hash = current_result.data[0]["Password_Hash"];
         
         // Update only provided fields
-        user_data.email = message.parameters.count("email") ? 
-                          message.parameters.at("email") : current_result.data[0]["Email"];
-        user_data.first_name = message.parameters.count("first_name") ? 
-                              message.parameters.at("first_name") : current_result.data[0]["First_Name"];
-        user_data.last_name = message.parameters.count("last_name") ? 
-                             message.parameters.at("last_name") : current_result.data[0]["Last_Name"];
-        user_data.phone_number = message.parameters.count("phone_number") ? 
-                                message.parameters.at("phone_number") : current_result.data[0]["Phone_Number"];
+        user_data.email = message.json_data.contains("email") ? 
+                          message.json_data["email"].get<std::string>() : current_result.data[0]["Email"];
+        user_data.first_name = message.json_data.contains("first_name") ? 
+                              message.json_data["first_name"].get<std::string>() : current_result.data[0]["First_Name"];
+        user_data.last_name = message.json_data.contains("last_name") ? 
+                             message.json_data["last_name"].get<std::string>() : current_result.data[0]["Last_Name"];
+        user_data.phone_number = message.json_data.contains("phone_number") ? 
+                                message.json_data["phone_number"].get<std::string>() : current_result.data[0]["Phone_Number"];
         
         auto result = db_manager->update_user(user_data);
         
@@ -1452,110 +1504,27 @@ Protocol_Handler::Response Protocol_Handler::handle_keepalive(const Parsed_Messa
     return Response(true, "PONG");
 }
 
+// Admin functions commented out - not implemented for college project scope
+/*
 Protocol_Handler::Response Protocol_Handler::handle_admin_get_stats(const Parsed_Message& message, Client_Handler* client)
 {
-    if (!client->is_authenticated())
-    {
-        return Response(false, Config::ErrorMessages::AUTHENTICATION_FAILED);
-    }
-    
-    if (!is_user_admin(client->get_client_info().user_id))
-    {
-        return Response(false, "Access denied: Admin privileges required");
-    }
-    
-    if (!db_manager)
-    {
-        return Response(false, Config::ErrorMessages::DB_CONNECTION_FAILED);
-    }
-    
-    try 
-    {
-        auto stats_result = db_manager->get_booking_statistics();
-        
-        if (stats_result.is_success())
-        {
-            std::string stats_json = vector_to_json(stats_result.data);
-            return Response(true, Config::SuccessMessages::DATA_RETRIEVED, stats_json);
-        }
-        else 
-        {
-            return Response(false, stats_result.message);
-        }
-    }
-    catch (const std::exception& e)
-    {
-        return Response(false, Config::ErrorMessages::SERVER_ERROR + ": " + std::string(e.what()));
-    }
+    // Not implemented - college project focuses on client functionality only
+    return Response(false, "Admin functions not available in this version");
 }
 
 Protocol_Handler::Response Protocol_Handler::handle_admin_get_users(const Parsed_Message& message, Client_Handler* client)
 {
-    if (!client->is_authenticated())
-    {
-        return Response(false, Config::ErrorMessages::AUTHENTICATION_FAILED);
-    }
-    
-    if (!is_user_admin(client->get_client_info().user_id))
-    {
-        return Response(false, "Access denied: Admin privileges required");
-    }
-    
-    if (!db_manager)
-    {
-        return Response(false, Config::ErrorMessages::DB_CONNECTION_FAILED);
-    }
-    
-    try 
-    {
-        auto users_result = db_manager->get_user_statistics();
-        
-        if (users_result.is_success())
-        {
-            std::string users_json = vector_to_json(users_result.data);
-            return Response(true, Config::SuccessMessages::DATA_RETRIEVED, users_json);
-        }
-        else 
-        {
-            return Response(false, users_result.message);
-        }
-    }
-    catch (const std::exception& e)
-    {
-        return Response(false, Config::ErrorMessages::SERVER_ERROR + ": " + std::string(e.what()));
-    }
+    // Not implemented - college project focuses on client functionality only
+    return Response(false, "Admin functions not available in this version");
 }
 
 Protocol_Handler::Response Protocol_Handler::handle_admin_manage_offers(const Parsed_Message& message, Client_Handler* client)
 {
-    if (!client->is_authenticated())
-    {
-        return Response(false, Config::ErrorMessages::AUTHENTICATION_FAILED);
-    }
-    
-    if (!is_user_admin(client->get_client_info().user_id))
-    {
-        return Response(false, "Access denied: Admin privileges required");
-    }
-    
-    // TODO: Implement specific offer management operations based on sub-command
-    return Response(false, "Admin offer management not yet implemented");
+    // Not implemented - college project focuses on client functionality only
+    return Response(false, "Admin functions not available in this version");
 }
+*/
 
-bool Protocol_Handler::validate_required_parameters(const Parsed_Message& message,
-    const std::vector<std::string>& required_params, std::string& error_message)
-{
-    for (const std::string& param : required_params)
-    {
-        if (message.parameters.find(param) == message.parameters.end() ||
-            message.parameters.at(param).empty())
-        {
-            error_message = "Missing required parameter: " + param;
-            return false;
-        }
-    }
-    return true;
-}
 
 bool Protocol_Handler::is_user_admin(int user_id)
 {
@@ -1570,39 +1539,32 @@ std::string Protocol_Handler::vector_to_json(const std::vector<std::map<std::str
         return "[]";
     }
     
-    std::stringstream ss;
-    ss << "[";
-    
-    for (size_t i = 0; i < data.size(); i++)
+    nlohmann::json json_array = nlohmann::json::array();
+    for (const auto& row : data)
     {
-        if (i > 0) ss << ",";
-        ss << map_to_json(data[i]);
+        nlohmann::json json_obj;
+        for (const auto& pair : row)
+        {
+            json_obj[pair.first] = pair.second;
+        }
+        json_array.push_back(json_obj);
     }
     
-    ss << "]";
-    return ss.str();
+    return json_array.dump();
 }
 
-std::string Protocol_Handler::map_to_json(const std::map<std::string, std::string>& data)
+
+std::string Protocol_Handler::create_json_response(bool success, const std::string& message, const nlohmann::json& data, int error_code)
 {
-    if (data.empty())
+    nlohmann::json response;
+    response["success"] = success;
+    response["message"] = message;
+    response["data"] = data;
+    
+    if (!success && error_code != 0)
     {
-        return "{}";
+        response["error_code"] = error_code;
     }
     
-    std::stringstream ss;
-    ss << "{";
-    
-    bool first = true;
-    for (const auto& pair : data)
-    {
-        if (!first) ss << ",";
-        first = false;
-        
-        ss << "\"" << Utils::JSON::escape_json(pair.first) << "\":"
-           << "\"" << Utils::JSON::escape_json(pair.second) << "\"";
-    }
-    
-    ss << "}";
-    return ss.str();
+    return response.dump();
 }

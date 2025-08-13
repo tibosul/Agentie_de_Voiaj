@@ -356,43 +356,45 @@ void test_protocol_handler()
         auto db_manager = std::make_shared<Database_Manager>();
         Protocol_Handler protocol(db_manager);
         
-        std::cout << "\n1. Message Parsing:" << std::endl;
+        std::cout << "\n1. JSON Message Parsing:" << std::endl;
         
-        // Test various message types
-        std::vector<std::string> test_messages = {
-            "AUTH|username=admin|password=test123",
-            "REGISTER|username=newuser|email=user@test.com|first_name=John|last_name=Doe",
-            "GET_DESTINATIONS",
-            "GET_OFFERS",
-            "SEARCH_OFFERS|destination=Paris|min_price=100|max_price=1000",
-            "BOOK_OFFER|offer_id=1|person_count=2",
-            "KEEPALIVE",
-            "INVALID_COMMAND",
-            "",
-            "AUTH|username=incomplete"
+        // Test various JSON message types
+        std::vector<std::string> json_messages = {
+            "{\"type\":\"AUTH\",\"username\":\"admin\",\"password\":\"test123\"}",
+            "{\"type\":\"REGISTER\",\"username\":\"newuser\",\"email\":\"user@test.com\",\"first_name\":\"John\",\"last_name\":\"Doe\"}",
+            "{\"type\":\"GET_DESTINATIONS\"}",
+            "{\"type\":\"GET_OFFERS\"}",
+            "{\"type\":\"SEARCH_OFFERS\",\"destination\":\"Paris\",\"min_price\":100,\"max_price\":1000}",
+            "{\"type\":\"BOOK_OFFER\",\"offer_id\":1,\"person_count\":2}",
+            "{\"type\":\"KEEPALIVE\"}",
+            "{\"command\":\"AUTH\",\"username\":\"admin\",\"password\":\"test123\"}",
+            "{\"invalid\":\"json_without_type\"}",
+            "{malformed json}"
         };
         
-        for (const auto& msg : test_messages)
+        for (const auto& msg : json_messages)
         {
             auto parsed = protocol.parse_message(msg);
-            std::cout << "   Message: \"" << msg << "\"" << std::endl;
+            std::cout << "   JSON Message: \"" << msg << "\"" << std::endl;
             std::cout << "     Type: " << protocol.message_type_to_string(parsed.type) << std::endl;
             std::cout << "     Valid: " << (parsed.is_valid ? "YES" : "NO") << std::endl;
             if (!parsed.is_valid && !parsed.error_message.empty())
             {
                 std::cout << "     Error: " << parsed.error_message << std::endl;
             }
-            if (!parsed.parameters.empty())
+            if (parsed.is_valid && !parsed.json_data.empty())
             {
-                std::cout << "     Parameters: ";
-                for (const auto& param : parsed.parameters)
-                {
-                    std::cout << "[" << param.first << "=" << param.second << "] ";
-                }
-                std::cout << std::endl;
+                std::cout << "     JSON Data: " << parsed.json_data.dump() << std::endl;
             }
             std::cout << std::endl;
         }
+        
+        std::cout << "\n3. JSON Response Creation:" << std::endl;
+        std::string success_resp = protocol.create_response(true, "Operation successful", "{\"id\":1,\"name\":\"Test\"}", 0);
+        std::cout << "   Success response: " << success_resp << std::endl;
+        
+        std::string error_resp = protocol.create_response(false, "Operation failed", "", 404);
+        std::cout << "   Error response: " << error_resp << std::endl;
         
         std::cout << "\n2. Message Type Recognition:" << std::endl;
         std::vector<std::string> commands = {
@@ -402,16 +404,12 @@ void test_protocol_handler()
         
         for (const auto& cmd : commands)
         {
-            auto type = protocol.get_message_type(cmd);
+            nlohmann::json test_json;
+            test_json["type"] = cmd;
+            auto type = protocol.get_message_type(test_json);
             std::cout << "   Command \"" << cmd << "\" -> " << protocol.message_type_to_string(type) << std::endl;
         }
         
-        std::cout << "\n3. Response Creation:" << std::endl;
-        std::string success_resp = protocol.create_response(true, "Operation successful", "{\"id\":1}", 0);
-        std::cout << "   Success response: " << success_resp << std::endl;
-        
-        std::string error_resp = protocol.create_response(false, "Operation failed", "", 404);
-        std::cout << "   Error response: " << error_resp << std::endl;
         
         std::cout << "✅ Protocol Handler tests completed!" << std::endl;
     }

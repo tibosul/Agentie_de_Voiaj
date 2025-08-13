@@ -29,7 +29,7 @@
 #pragma comment(lib, "libssl.lib")
 #pragma comment(lib, "libcrypto.lib")
 
-using json = nlohmann::json;
+// using json = nlohmann::json; // Removed to avoid conflicts
 
 namespace Utils
 {
@@ -567,21 +567,36 @@ namespace Utils
 		std::string create_error_response(const std::string& error_message, int error_code)
     	{
 			nlohmann::json response;
-			response["status"] = "error";
+			response["success"] = false;
 			response["message"] = error_message;
 			if (error_code != -1)
-				response["code"] = error_code;
+				response["error_code"] = error_code;
 			return response.dump();
     	}
 
 		std::string create_success_response(const std::string& data, const std::string& message)
    		{
 			nlohmann::json response;
-			response["status"] = "success";
+			response["success"] = true;
+			response["message"] = message.empty() ? "Success" : message;
+			
 			if (!data.empty())
-				response["data"] = data;
-			if (!message.empty())
-				response["message"] = message;
+			{
+				try
+				{
+					// Try to parse data as JSON, if it fails treat as string
+					response["data"] = nlohmann::json::parse(data);
+				}
+				catch (const nlohmann::json::parse_error&)
+				{
+					response["data"] = data;
+				}
+			}
+			else
+			{
+				response["data"] = nlohmann::json::object();
+			}
+			
 			return response.dump();
     	}
 

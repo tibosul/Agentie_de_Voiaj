@@ -222,9 +222,9 @@ public:
 		CANCEL_RESERVATION,
 		GET_USER_INFO,
 		UPDATE_USER_INFO,
-		ADMIN_GET_STATS,
-		ADMIN_GET_USERS,
-		ADMIN_MANAGE_OFFERS,
+		// ADMIN_GET_STATS,        // Not implemented - college project scope
+		// ADMIN_GET_USERS,        // Not implemented - college project scope  
+		// ADMIN_MANAGE_OFFERS,    // Not implemented - college project scope
 		KEEPALIVE,
 		ERR,
 		UNKNOWN
@@ -234,7 +234,7 @@ public:
 	{
 		Message_Type type;
 		std::string raw_message;
-		std::map<std::string, std::string> parameters;
+		nlohmann::json json_data; // Store parsed JSON data
 		bool is_valid = false;
 		std::string error_message;
 
@@ -262,8 +262,8 @@ private:
 public:
 	explicit Protocol_Handler(std::shared_ptr<Database::Database_Manager> db_manager);
 
-	Parsed_Message parse_message(const std::string& message);
-	Message_Type get_message_type(const std::string& message);
+	Parsed_Message parse_message(const std::string& json_message);
+	Message_Type get_message_type(const nlohmann::json& json_obj);
 	std::string message_type_to_string(Message_Type type);
 
 	Response process_message(const Parsed_Message& parsed_message, Client_Handler* client_handler);
@@ -284,9 +284,10 @@ public:
 	Response handle_update_user_info(const Parsed_Message& message, Client_Handler* client);
 	Response handle_keepalive(const Parsed_Message& message, Client_Handler* client);
 
-	Response handle_admin_get_stats(const Parsed_Message& message, Client_Handler* client);
-	Response handle_admin_get_users(const Parsed_Message& message, Client_Handler* client);
-	Response handle_admin_manage_offers(const Parsed_Message& message, Client_Handler* client);
+	// Admin functions not implemented for college project scope
+	// Response handle_admin_get_stats(const Parsed_Message& message, Client_Handler* client);
+	// Response handle_admin_get_users(const Parsed_Message& message, Client_Handler* client);
+	// Response handle_admin_manage_offers(const Parsed_Message& message, Client_Handler* client);
 
 	bool validate_required_parameters(const Parsed_Message& message, 
 		const std::vector<std::string>& required_params,
@@ -295,7 +296,7 @@ public:
 	// Note: Use Config::Business and Config::Security constants for validation limits
 
 private:
-	// JSON conversion functions - consider using a proper JSON library
+	// JSON utilities
 	std::string vector_to_json(const std::vector<std::map<std::string, std::string>>& data);
-	std::string map_to_json(const std::map<std::string, std::string>& data);
+	std::string create_json_response(bool success, const std::string& message = "", const nlohmann::json& data = nlohmann::json::object(), int error_code = 0);
 };
