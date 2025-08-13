@@ -923,15 +923,9 @@ Protocol_Handler::Parsed_Message Protocol_Handler::parse_message(const std::stri
         
         if (parsed.type == Message_Type::UNKNOWN)
         {
-            std::string command;
-            if (msg_json.contains("type"))
-            {
-                command = msg_json["type"].get<std::string>();
-            }
-            else
-            {
-                command = msg_json["command"].get<std::string>();
-            }
+            std::string command = msg_json.contains("type") ? 
+                msg_json["type"].get<std::string>() : 
+                msg_json["command"].get<std::string>();
             parsed.error_message = "Unknown command: " + command;
             return parsed;
         }
@@ -1499,7 +1493,7 @@ Protocol_Handler::Response Protocol_Handler::handle_update_user_info(const Parse
     }
 }
 
-Protocol_Handler::Response Protocol_Handler::handle_keepalive(const Parsed_Message& message, Client_Handler* client)
+Protocol_Handler::Response Protocol_Handler::handle_keepalive(const Parsed_Message& /*message*/, Client_Handler* /*client*/)
 {
     return Response(true, "PONG");
 }
@@ -1526,10 +1520,10 @@ Protocol_Handler::Response Protocol_Handler::handle_admin_manage_offers(const Pa
 */
 
 
-bool Protocol_Handler::is_user_admin(int user_id)
+bool Protocol_Handler::is_user_admin(int /*user_id*/)
 {
-    // TODO: Implement proper admin check - for now, assume user_id 1 is admin
-    return user_id == 1;
+    // Not implemented in college project scope - all users are regular clients
+    return false;
 }
 
 std::string Protocol_Handler::vector_to_json(const std::vector<std::map<std::string, std::string>>& data)
@@ -1554,6 +1548,8 @@ std::string Protocol_Handler::vector_to_json(const std::vector<std::map<std::str
 }
 
 
+// Unused function removed - we use create_response instead
+/*
 std::string Protocol_Handler::create_json_response(bool success, const std::string& message, const nlohmann::json& data, int error_code)
 {
     nlohmann::json response;
@@ -1568,3 +1564,4 @@ std::string Protocol_Handler::create_json_response(bool success, const std::stri
     
     return response.dump();
 }
+*/

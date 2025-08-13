@@ -6,7 +6,8 @@
       "Bash(.test_compile.bat)",
       "Bash(where:*)",
       "Bash(del test_json_syntax.cpp test_headers.cpp)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

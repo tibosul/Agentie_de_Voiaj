@@ -222,9 +222,7 @@ public:
 		CANCEL_RESERVATION,
 		GET_USER_INFO,
 		UPDATE_USER_INFO,
-		// ADMIN_GET_STATS,        // Not implemented - college project scope
-		// ADMIN_GET_USERS,        // Not implemented - college project scope  
-		// ADMIN_MANAGE_OFFERS,    // Not implemented - college project scope
+		// Admin message types reserved for future implementation
 		KEEPALIVE,
 		ERR,
 		UNKNOWN
@@ -289,14 +287,15 @@ public:
 	// Response handle_admin_get_users(const Parsed_Message& message, Client_Handler* client);
 	// Response handle_admin_manage_offers(const Parsed_Message& message, Client_Handler* client);
 
-	bool validate_required_parameters(const Parsed_Message& message, 
-		const std::vector<std::string>& required_params,
-		std::string& error_message);
-	bool is_user_admin(int user_id);
+	// bool validate_required_parameters(const Parsed_Message& message,  // Removed - not needed with JSON
+	//	const std::vector<std::string>& required_params,
+	//	std::string& error_message);
+	bool is_user_admin(int user_id);  // Keep for potential future use
 	// Note: Use Config::Business and Config::Security constants for validation limits
+
 
 private:
 	// JSON utilities
 	std::string vector_to_json(const std::vector<std::map<std::string, std::string>>& data);
-	std::string create_json_response(bool success, const std::string& message = "", const nlohmann::json& data = nlohmann::json::object(), int error_code = 0);
+	// std::string create_json_response(bool success, const std::string& message = "", const nlohmann::json& data = nlohmann::json::object(), int error_code = 0);  // Not used
 };
