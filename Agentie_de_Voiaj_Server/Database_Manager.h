@@ -11,6 +11,12 @@
 #include <sstream>
 #include <iomanip>
 
+// Winsock headers must come before windows.h to avoid conflicts
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+
 // SQL Server headers - IMPORTANT ORDER!
 #include <windows.h>
 #include <sql.h>

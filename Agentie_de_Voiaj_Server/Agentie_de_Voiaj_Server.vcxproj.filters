@@ -24,6 +24,9 @@
     <ClCompile Include="Database_Manager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Socket_Server.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="sql\extra.sql" />
@@ -42,6 +45,9 @@
       <Filter>Resource Files</Filter>
     </ClInclude>
     <ClInclude Include="Database_Manager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Socket_Server.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

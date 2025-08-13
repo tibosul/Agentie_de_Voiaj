@@ -88,7 +88,7 @@ namespace Config
 		const std::string INSUFFICIENT_SEATS = "Not enough available seats";
 		const std::string INVALID_REQUEST = "Invalid request format";
 		const std::string SERVER_ERROR = "Internal server error";
-		const std::string SOCKET_ERROR = "Socket communication error";
+		const std::string SOCKET_COMM_ERROR = "Socket communication error";
 	}
 
 	// Success Messages
