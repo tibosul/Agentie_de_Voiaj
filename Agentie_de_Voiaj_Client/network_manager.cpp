@@ -303,7 +303,32 @@ void Network_Manager::update_user_info(const QString& email, const QString& firs
 {
     if (connection_status != Connection_Status::Connected)
     {
-        emit user_info_update_failed("Not connected to server");
+        emit user_info_update_failed(Config::ErrorMessages::CONNECTION_FAILED);
+        return;
+    }
+    
+    // Validate fields if they are not empty (allow empty values for optional updates)
+    if (!email.isEmpty() && !Utils::Validation::is_valid_email(email))
+    {
+        emit user_info_update_failed(Utils::Validation::get_validation_error("email", email));
+        return;
+    }
+    
+    if (!first_name.isEmpty() && !Utils::Validation::is_valid_name(first_name))
+    {
+        emit user_info_update_failed(Utils::Validation::get_validation_error("name", first_name));
+        return;
+    }
+    
+    if (!last_name.isEmpty() && !Utils::Validation::is_valid_name(last_name))
+    {
+        emit user_info_update_failed(Utils::Validation::get_validation_error("name", last_name));
+        return;
+    }
+    
+    if (!phone_number.isEmpty() && !Utils::Validation::is_valid_phone(phone_number))
+    {
+        emit user_info_update_failed(Utils::Validation::get_validation_error("phone", phone_number));
         return;
     }
     

@@ -1,5 +1,7 @@
 #include "main_window.h"
 #include "login_dialog.h"
+#include "config.h"
+#include "utils.h"
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QInputDialog>
@@ -87,6 +89,8 @@ void Main_Window::setup_offers_tab()
     offers_table->horizontalHeader()->setStretchLastSection(true);
     offers_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     offers_table->setAlternatingRowColors(true);
+    offers_table->setSortingEnabled(true);
+    offers_table->horizontalHeader()->setSortIndicatorShown(true);
     layout->addWidget(offers_table);
     
     // Action buttons
@@ -163,6 +167,8 @@ void Main_Window::setup_search_tab()
     search_results_table->horizontalHeader()->setStretchLastSection(true);
     search_results_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     search_results_table->setAlternatingRowColors(true);
+    search_results_table->setSortingEnabled(true);
+    search_results_table->horizontalHeader()->setSortIndicatorShown(true);
     layout->addWidget(search_results_table);
     
     main_tabs->addTab(search_tab, "Cautare");
@@ -194,6 +200,8 @@ void Main_Window::setup_reservations_tab()
     reservations_table->horizontalHeader()->setStretchLastSection(true);
     reservations_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     reservations_table->setAlternatingRowColors(true);
+    reservations_table->setSortingEnabled(true);
+    reservations_table->horizontalHeader()->setSortIndicatorShown(true);
     layout->addWidget(reservations_table);
     
     // Action buttons
@@ -485,13 +493,40 @@ void Main_Window::on_search_offers()
     double max_price = max_price_edit->text().isEmpty() ? 0.0 : max_price_edit->text().toDouble();
     QString start_date = start_date_edit->date().toString("yyyy-MM-dd");
     
-    search_status_label->setText("Se cauta...");
+    // Validate price range if provided
+    if (min_price > 0 && !Utils::Validation::is_valid_price(min_price))
+    {
+        QMessageBox::warning(this, "Eroare validare", 
+            QString("Prețul minim trebuie să fie între %1 și %2 RON")
+            .arg(Config::Business::MIN_PRICE)
+            .arg(Config::Business::MAX_PRICE));
+        return;
+    }
+    
+    if (max_price > 0 && !Utils::Validation::is_valid_price(max_price))
+    {
+        QMessageBox::warning(this, "Eroare validare", 
+            QString("Prețul maxim trebuie să fie între %1 și %2 RON")
+            .arg(Config::Business::MIN_PRICE)
+            .arg(Config::Business::MAX_PRICE));
+        return;
+    }
+    
+    if (min_price > 0 && max_price > 0 && min_price >= max_price)
+    {
+        QMessageBox::warning(this, "Eroare validare", "Prețul minim trebuie să fie mai mic decât prețul maxim");
+        return;
+    }
+    
+    search_status_label->setText(Config::StatusMessages::PROCESSING);
     search_results_table->setRowCount(0);
+    show_status_message(Config::StatusMessages::PROCESSING);
     
     // Connect to search results
     connect(network_manager, &Network_Manager::offers_received, this, [this](const QList<Offer_Info>& offers) {
         populate_offers_table(offers, search_results_table);
-        search_status_label->setText(QString("Gasit %1 rezultate").arg(offers.size()));
+        search_status_label->setText(QString("Găsit %1 rezultate").arg(offers.size()));
+        show_status_message(Config::SuccessMessages::DATA_LOADED);
     }, Qt::SingleShotConnection);
     
     network_manager->search_offers(destination, min_price, max_price, start_date, "");

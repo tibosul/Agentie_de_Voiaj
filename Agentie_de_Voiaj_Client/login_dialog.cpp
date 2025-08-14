@@ -1,5 +1,7 @@
 #include "login_dialog.h"
 #include "network_manager.h"
+#include "config.h"
+#include "utils.h"
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QMessageBox>
