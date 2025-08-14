@@ -7,9 +7,21 @@
       "Bash(where:*)",
       "Bash(del test_json_syntax.cpp test_headers.cpp)",
       "Bash(rm:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(dir:*)",
+      "Bash(devenv:*)",
+      "Bash(msbuild:*)",
+      "Bash(timeout:*)",
+      "Bash(\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe\" ../Agentie_de_Voiaj_Server.vcxproj /p:Configuration=Debug /p:Platform=x64)",
+      "Bash(\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe\" Agentie_de_Voiaj_ServerAgentie_de_Voiaj_Server.vcxproj /p:Configuration=Debug /p:Platform=x64)",
+      "Bash(\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe\" \"Agentie_de_Voiaj_Server\\Agentie_de_Voiaj_Server.vcxproj\" /p:Configuration=Debug /p:Platform=x64)",
+      "Bash(\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe\" \"Agentie_de_Voiaj_Server\\Agentie_de_Voiaj_Server.vcxproj\" /p:Configuration=Debug,Platform=x64)",
+      "Bash(powershell:*)",
+      "Bash(sc query:*)",
+      "Bash(sqlcmd:*)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "defaultMode": "acceptEdits"
   }
 }

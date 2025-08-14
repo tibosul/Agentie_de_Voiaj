@@ -24,7 +24,7 @@ namespace Config
 		constexpr int QUERY_TIMEOUT = 15; // seconds
 		constexpr bool AUTO_COMMIT = true; // Auto-commit transactions
 
-		// Connection string template
+		// Connection string template - not used, build_connection_string() used instead
 		const std::string CONNECTION_TEMPLATE =
 			"DRIVER={" + DRIVER + "};"
 			"SERVER=" + DEFAULT_SERVER + ";"

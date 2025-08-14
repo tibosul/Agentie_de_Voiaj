@@ -83,11 +83,24 @@ std::string Database_Manager::build_connection_string() const
 {
     std::stringstream ss;
     ss << "DRIVER={ODBC Driver 17 for SQL Server};"
-       << "SERVER=" << server << ";"
-       << "DATABASE=" << database << ";"
-       << "UID=" << username << ";"
-       << "PWD=" << password << ";"
-       << "Trusted_Connection=no;";
+       << "SERVER=" << server << ";";
+    
+    // Use Windows Authentication if username/password are empty
+    if (username.empty() && password.empty())
+    {
+        ss << "DATABASE=" << database << ";"
+           << "Trusted_Connection=yes;"
+           << "Connection Timeout=30;";
+    }
+    else
+    {
+        ss << "DATABASE=" << database << ";"
+           << "UID=" << username << ";"
+           << "PWD=" << password << ";"
+           << "Trusted_Connection=no;"
+           << "Connection Timeout=30;";
+    }
+    
     return ss.str();
 }
 
