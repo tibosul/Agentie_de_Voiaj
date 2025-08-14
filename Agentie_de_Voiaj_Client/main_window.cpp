@@ -1,5 +1,7 @@
 #include "main_window.h"
 #include "login_dialog.h"
+#include "config.h"
+#include "utils.h"
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QInputDialog>
@@ -23,7 +25,7 @@ Main_Window::Main_Window(QWidget *parent)
     
     // Initial UI state
     update_ui_for_user_state();
-    set_connection_status("Deconectat", false);
+    set_connection_status(Config::StatusMessages::DISCONNECTED, false);
     
     // Show login dialog on startup
     QTimer::singleShot(500, this, &Main_Window::show_login_dialog);
@@ -87,6 +89,8 @@ void Main_Window::setup_offers_tab()
     offers_table->horizontalHeader()->setStretchLastSection(true);
     offers_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     offers_table->setAlternatingRowColors(true);
+    offers_table->setSortingEnabled(true);
+    offers_table->horizontalHeader()->setSortIndicatorShown(true);
     layout->addWidget(offers_table);
     
     // Action buttons
@@ -163,6 +167,8 @@ void Main_Window::setup_search_tab()
     search_results_table->horizontalHeader()->setStretchLastSection(true);
     search_results_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     search_results_table->setAlternatingRowColors(true);
+    search_results_table->setSortingEnabled(true);
+    search_results_table->horizontalHeader()->setSortIndicatorShown(true);
     layout->addWidget(search_results_table);
     
     main_tabs->addTab(search_tab, "Cautare");
@@ -194,6 +200,8 @@ void Main_Window::setup_reservations_tab()
     reservations_table->horizontalHeader()->setStretchLastSection(true);
     reservations_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     reservations_table->setAlternatingRowColors(true);
+    reservations_table->setSortingEnabled(true);
+    reservations_table->horizontalHeader()->setSortIndicatorShown(true);
     layout->addWidget(reservations_table);
     
     // Action buttons
@@ -424,11 +432,12 @@ void Main_Window::on_login_successful()
     update_ui_for_user_state();
     
     // Load initial data
+    show_status_message(Config::StatusMessages::LOADING_DATA);
     network_manager->get_destinations();
     network_manager->get_offers();
     network_manager->get_user_info();
     
-    show_status_message("Autentificare reusita!");
+    show_status_message(Config::SuccessMessages::AUTHENTICATION_SUCCESSFUL);
 }
 
 void Main_Window::on_user_logged_out()
@@ -449,7 +458,7 @@ void Main_Window::on_user_logged_out()
     profile_last_name_edit->clear();
     profile_phone_edit->clear();
     
-    show_status_message("Deconectare utilizator reusita");
+    show_status_message(Config::SuccessMessages::LOGOUT_SUCCESSFUL);
 }
 
 void Main_Window::on_destinations_received(const QList<Destination_Info>& destinations)
@@ -484,13 +493,40 @@ void Main_Window::on_search_offers()
     double max_price = max_price_edit->text().isEmpty() ? 0.0 : max_price_edit->text().toDouble();
     QString start_date = start_date_edit->date().toString("yyyy-MM-dd");
     
-    search_status_label->setText("Se cauta...");
+    // Validate price range if provided
+    if (min_price > 0 && !Utils::Validation::is_valid_price(min_price))
+    {
+        QMessageBox::warning(this, "Eroare validare", 
+            QString("Prețul minim trebuie să fie între %1 și %2 RON")
+            .arg(Config::Business::MIN_PRICE)
+            .arg(Config::Business::MAX_PRICE));
+        return;
+    }
+    
+    if (max_price > 0 && !Utils::Validation::is_valid_price(max_price))
+    {
+        QMessageBox::warning(this, "Eroare validare", 
+            QString("Prețul maxim trebuie să fie între %1 și %2 RON")
+            .arg(Config::Business::MIN_PRICE)
+            .arg(Config::Business::MAX_PRICE));
+        return;
+    }
+    
+    if (min_price > 0 && max_price > 0 && min_price >= max_price)
+    {
+        QMessageBox::warning(this, "Eroare validare", "Prețul minim trebuie să fie mai mic decât prețul maxim");
+        return;
+    }
+    
+    search_status_label->setText(Config::StatusMessages::PROCESSING);
     search_results_table->setRowCount(0);
+    show_status_message(Config::StatusMessages::PROCESSING);
     
     // Connect to search results
     connect(network_manager, &Network_Manager::offers_received, this, [this](const QList<Offer_Info>& offers) {
         populate_offers_table(offers, search_results_table);
-        search_status_label->setText(QString("Gasit %1 rezultate").arg(offers.size()));
+        search_status_label->setText(QString("Găsit %1 rezultate").arg(offers.size()));
+        show_status_message(Config::SuccessMessages::DATA_LOADED);
     }, Qt::SingleShotConnection);
     
     network_manager->search_offers(destination, min_price, max_price, start_date, "");
@@ -501,28 +537,40 @@ void Main_Window::on_book_offer()
     int row = offers_table->currentRow();
     if (row < 0 || row >= current_offers.size())
     {
-        QMessageBox::warning(this, "Atentie", "Selectati o oferta pentru a rezerva.");
+        QMessageBox::warning(this, "Atenție", "Selectați o ofertă pentru a rezerva.");
         return;
     }
     
     bool ok;
     int person_count = QInputDialog::getInt(this, "Rezervare", 
-        "Numarul de persoane:", 1, 1, 10, 1, &ok);
+        "Numărul de persoane:", 1, 1, 10, 1, &ok);
     
     if (ok)
     {
+        // Validate person count
+        if (!Utils::Validation::is_valid_person_count(person_count))
+        {
+            QMessageBox::warning(this, "Eroare validare", 
+                QString("Numărul de persoane trebuie să fie între 1 și %1")
+                .arg(Config::Business::MAX_PERSONS_PER_RESERVATION));
+            return;
+        }
+        
+        show_status_message(Config::StatusMessages::BOOKING);
         const Offer_Info& offer = current_offers[row];
         network_manager->book_offer(offer.id, person_count);
         
         connect(network_manager, &Network_Manager::booking_successful, this, [this](int reservation_id) {
             QMessageBox::information(this, "Succes", 
-                QString("Rezervare reusita! ID rezervare: %1").arg(reservation_id));
+                Config::SuccessMessages::BOOKING_SUCCESSFUL + QString("! ID rezervare: %1").arg(reservation_id));
+            show_status_message(Config::SuccessMessages::BOOKING_SUCCESSFUL);
             // Refresh reservations
             network_manager->get_user_reservations();
         }, Qt::SingleShotConnection);
         
         connect(network_manager, &Network_Manager::booking_failed, this, [this](const QString& error) {
-            QMessageBox::warning(this, "Eroare", "Rezervare esuata: " + error);
+            QMessageBox::warning(this, "Eroare", Config::ErrorMessages::BOOKING_FAILED + ": " + error);
+            show_status_message(Config::ErrorMessages::BOOKING_FAILED);
         }, Qt::SingleShotConnection);
     }
 }
@@ -532,27 +580,30 @@ void Main_Window::on_cancel_reservation()
     int row = reservations_table->currentRow();
     if (row < 0 || row >= current_reservations.size())
     {
-        QMessageBox::warning(this, "Atentie", "Selectati o rezervare pentru a anula.");
+        QMessageBox::warning(this, "Atenție", "Selectați o rezervare pentru a anula.");
         return;
     }
     
     int ret = QMessageBox::question(this, "Confirmare", 
-        "Sigur doriti sa anulati aceasta rezervare?", 
+        "Sigur doriți să anulați această rezervare?", 
         QMessageBox::Yes | QMessageBox::No);
     
     if (ret == QMessageBox::Yes)
     {
+        show_status_message(Config::StatusMessages::CANCELLING);
         const Reservation_Info& reservation = current_reservations[row];
         network_manager->cancel_reservation(reservation.id);
         
         connect(network_manager, &Network_Manager::cancellation_successful, this, [this]() {
-            QMessageBox::information(this, "Succes", "Rezervare anulata cu succes!");
+            QMessageBox::information(this, "Succes", Config::SuccessMessages::CANCELLATION_SUCCESSFUL);
+            show_status_message(Config::SuccessMessages::CANCELLATION_SUCCESSFUL);
             // Refresh reservations
             network_manager->get_user_reservations();
         }, Qt::SingleShotConnection);
         
         connect(network_manager, &Network_Manager::cancellation_failed, this, [this](const QString& error) {
-            QMessageBox::warning(this, "Eroare", "Anulare esuata: " + error);
+            QMessageBox::warning(this, "Eroare", Config::ErrorMessages::CANCELLATION_FAILED + ": " + error);
+            show_status_message(Config::ErrorMessages::CANCELLATION_FAILED);
         }, Qt::SingleShotConnection);
     }
 }
@@ -561,28 +612,66 @@ void Main_Window::on_refresh_data()
 {
     if (network_manager->is_user_logged_in())
     {
+        show_status_message(Config::StatusMessages::LOADING_DATA);
         network_manager->get_destinations();
         network_manager->get_offers();
         network_manager->get_user_reservations();
-        show_status_message("Datele au fost actualizate");
+        
+        // Connect to success signals to show completion message
+        connect(network_manager, &Network_Manager::offers_received, this, [this]() {
+            show_status_message(Config::SuccessMessages::DATA_LOADED);
+        }, Qt::SingleShotConnection);
     }
 }
 
 void Main_Window::on_update_profile()
 {
-    network_manager->update_user_info(
-        profile_email_edit->text(),
-        profile_first_name_edit->text(),
-        profile_last_name_edit->text(),
-        profile_phone_edit->text()
-    );
+    // Validate input fields before sending
+    QString email = profile_email_edit->text().trimmed();
+    QString first_name = profile_first_name_edit->text().trimmed();
+    QString last_name = profile_last_name_edit->text().trimmed();
+    QString phone = profile_phone_edit->text().trimmed();
+    
+    // Validate email if provided
+    if (!email.isEmpty() && !Utils::Validation::is_valid_email(email))
+    {
+        QMessageBox::warning(this, "Eroare validare", Utils::Validation::get_validation_error("email", email));
+        return;
+    }
+    
+    // Validate first name if provided
+    if (!first_name.isEmpty() && !Utils::Validation::is_valid_name(first_name))
+    {
+        QMessageBox::warning(this, "Eroare validare", Utils::Validation::get_validation_error("name", first_name));
+        return;
+    }
+    
+    // Validate last name if provided
+    if (!last_name.isEmpty() && !Utils::Validation::is_valid_name(last_name))
+    {
+        QMessageBox::warning(this, "Eroare validare", Utils::Validation::get_validation_error("name", last_name));
+        return;
+    }
+    
+    // Validate phone if provided
+    if (!phone.isEmpty() && !Utils::Validation::is_valid_phone(phone))
+    {
+        QMessageBox::warning(this, "Eroare validare", Utils::Validation::get_validation_error("phone", phone));
+        return;
+    }
+    
+    show_status_message(Config::StatusMessages::UPDATING);
+    
+    network_manager->update_user_info(email, first_name, last_name, phone);
     
     connect(network_manager, &Network_Manager::user_info_updated, this, [this]() {
-        QMessageBox::information(this, "Succes", "Profil actualizat cu succes!");
+        QMessageBox::information(this, "Succes", Config::SuccessMessages::UPDATE_SUCCESSFUL);
+        show_status_message(Config::SuccessMessages::UPDATE_SUCCESSFUL);
     }, Qt::SingleShotConnection);
     
     connect(network_manager, &Network_Manager::user_info_update_failed, this, [this](const QString& error) {
-        QMessageBox::warning(this, "Eroare", "Actualizare esuata: " + error);
+        QMessageBox::warning(this, "Eroare", Config::ErrorMessages::UPDATE_FAILED + ": " + error);
+        show_status_message(Config::ErrorMessages::UPDATE_FAILED);
     }, Qt::SingleShotConnection);
 }
 
@@ -609,20 +698,20 @@ void Main_Window::on_profile_tab_clicked()
 
 void Main_Window::on_connected_to_server()
 {
-    set_connection_status("Conectat", true);
-    show_status_message("Conectat la server");
+    set_connection_status(Config::StatusMessages::CONNECTED, true);
+    show_status_message(Config::SuccessMessages::CONNECTION_SUCCESSFUL);
 }
 
 void Main_Window::on_disconnected_from_server()
 {
-    set_connection_status("Deconectat", false);
-    show_status_message("Deconectat de la server");
+    set_connection_status(Config::StatusMessages::DISCONNECTED, false);
+    show_status_message(Config::SuccessMessages::LOGOUT_SUCCESSFUL);
 }
 
 void Main_Window::on_connection_error(const QString& error)
 {
     set_connection_status("Eroare conexiune", false);
-    show_status_message("Eroare conexiune: " + error);
+    show_status_message(Config::ErrorMessages::CONNECTION_FAILED + ": " + error);
 }
 
 void Main_Window::on_operation_completed(const QString& operation, bool success, const QString& message)
@@ -630,7 +719,7 @@ void Main_Window::on_operation_completed(const QString& operation, bool success,
     Q_UNUSED(operation)
     if (!success && !message.isEmpty())
     {
-        show_status_message("Eroare: " + message);
+        show_status_message(Config::ErrorMessages::SERVER_ERROR + ": " + message);
     }
 }
 
@@ -654,11 +743,11 @@ void Main_Window::update_ui_for_user_state()
     if (is_logged_in)
     {
         const User_Info& user = network_manager->get_current_user();
-        user_status_label->setText("Conectat: " + user.username);
+        user_status_label->setText(Config::StatusMessages::AUTHENTICATED + ": " + user.username);
     }
     else
     {
-        user_status_label->setText("Neautentificat");
+        user_status_label->setText(Config::StatusMessages::NOT_AUTHENTICATED);
     }
 }
 

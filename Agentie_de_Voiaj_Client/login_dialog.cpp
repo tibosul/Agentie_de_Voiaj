@@ -1,5 +1,7 @@
 #include "login_dialog.h"
 #include "network_manager.h"
+#include "config.h"
+#include "utils.h"
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QMessageBox>
@@ -164,7 +166,7 @@ void Login_Dialog::on_login_clicked()
     set_enabled(false);
     progress_bar->show();
     
-    show_message("Se conecteaza la server...");
+    show_message(Config::StatusMessages::CONNECTING);
     
     // Connect to server if not connected
     if (network_manager->get_connection_status() != Network_Manager::Connection_Status::Connected)
@@ -174,7 +176,7 @@ void Login_Dialog::on_login_clicked()
     else
     {
         // Already connected, authenticate directly
-        show_message("Se autentifica...");
+        show_message(Config::StatusMessages::AUTHENTICATING);
         network_manager->authenticate_user(login_username_edit->text(), login_password_edit->text());
     }
 }
@@ -190,7 +192,7 @@ void Login_Dialog::on_register_clicked()
     set_enabled(false);
     progress_bar->show();
     
-    show_message("Se conecteaza la server...");
+    show_message(Config::StatusMessages::CONNECTING);
     
     // Connect to server if not connected
     if (network_manager->get_connection_status() != Network_Manager::Connection_Status::Connected)
@@ -200,7 +202,7 @@ void Login_Dialog::on_register_clicked()
     else
     {
         // Already connected, register directly
-        show_message("Se inregistreaza utilizatorul...");
+        show_message(Config::StatusMessages::REGISTERING);
         network_manager->register_user(
             register_username_edit->text(),
             register_password_edit->text(),
@@ -217,12 +219,12 @@ void Login_Dialog::on_connected_to_server()
     // Determine which action to take based on current tab
     if (tab_widget->currentIndex() == 0) // Login tab
     {
-        show_message("Se autentifica...");
+        show_message(Config::StatusMessages::AUTHENTICATING);
         network_manager->authenticate_user(login_username_edit->text(), login_password_edit->text());
     }
     else // Register tab
     {
-        show_message("Se inregistreaza utilizatorul...");
+        show_message(Config::StatusMessages::REGISTERING);
         network_manager->register_user(
             register_username_edit->text(),
             register_password_edit->text(),
@@ -238,13 +240,13 @@ void Login_Dialog::on_connection_error(const QString& error)
 {
     progress_bar->hide();
     set_enabled(true);
-    show_message("Eroare de conexiune: " + error, true);
+    show_message(Config::ErrorMessages::CONNECTION_FAILED + ": " + error, true);
 }
 
 void Login_Dialog::on_authentication_successful()
 {
     progress_bar->hide();
-    show_message("Autentificare reusita!", false);
+    show_message(Config::SuccessMessages::AUTHENTICATION_SUCCESSFUL, false);
     emit login_successful();
     accept();
 }
@@ -253,14 +255,14 @@ void Login_Dialog::on_authentication_failed(const QString& error)
 {
     progress_bar->hide();
     set_enabled(true);
-    show_message("Autentificare esuata: " + error, true);
+    show_message(Config::ErrorMessages::AUTHENTICATION_FAILED + ": " + error, true);
 }
 
 void Login_Dialog::on_registration_successful()
 {
     progress_bar->hide();
     set_enabled(true);
-    show_message("Inregistrare reusita! Puteti sa va conectati acum.", false);
+    show_message(Config::SuccessMessages::REGISTRATION_SUCCESSFUL + "! Puteti sa va conectati acum.", false);
     
     // Switch to login tab and clear register fields
     tab_widget->setCurrentIndex(0);
@@ -277,7 +279,7 @@ void Login_Dialog::on_registration_failed(const QString& error)
 {
     progress_bar->hide();
     set_enabled(true);
-    show_message("Inregistrare esuata: " + error, true);
+    show_message(Config::ErrorMessages::REGISTRATION_FAILED + ": " + error, true);
 }
 
 void Login_Dialog::set_enabled(bool enabled)
@@ -301,16 +303,19 @@ void Login_Dialog::clear_messages()
 
 bool Login_Dialog::validate_login_fields()
 {
-    if (login_username_edit->text().trimmed().length() < 3)
+    QString username = login_username_edit->text().trimmed();
+    QString password = login_password_edit->text();
+    
+    if (!Utils::Validation::is_valid_username(username))
     {
-        show_message("Numele de utilizator trebuie sa aiba minim 3 caractere", true);
+        show_message(Utils::Validation::get_validation_error("username", username), true);
         login_username_edit->setFocus();
         return false;
     }
     
-    if (login_password_edit->text().length() < 6)
+    if (!Utils::Validation::is_valid_password(password))
     {
-        show_message("Parola trebuie sa aiba minim 6 caractere", true);
+        show_message(Utils::Validation::get_validation_error("password", password), true);
         login_password_edit->setFocus();
         return false;
     }
@@ -320,51 +325,66 @@ bool Login_Dialog::validate_login_fields()
 
 bool Login_Dialog::validate_register_fields()
 {
-    if (register_username_edit->text().trimmed().length() < 3)
+    QString username = register_username_edit->text().trimmed();
+    QString password = register_password_edit->text();
+    QString confirm_password = register_confirm_password_edit->text();
+    QString email = register_email_edit->text().trimmed();
+    QString first_name = register_first_name_edit->text().trimmed();
+    QString last_name = register_last_name_edit->text().trimmed();
+    QString phone = register_phone_edit->text().trimmed();
+    
+    // Validate username
+    if (!Utils::Validation::is_valid_username(username))
     {
-        show_message("Numele de utilizator trebuie sa aiba minim 3 caractere", true);
+        show_message(Utils::Validation::get_validation_error("username", username), true);
         register_username_edit->setFocus();
         return false;
     }
     
-    if (register_password_edit->text().length() < 6)
+    // Validate password
+    if (!Utils::Validation::is_valid_password(password))
     {
-        show_message("Parola trebuie sa aiba minim 6 caractere", true);
+        show_message(Utils::Validation::get_validation_error("password", password), true);
         register_password_edit->setFocus();
         return false;
     }
     
-    if (register_password_edit->text() != register_confirm_password_edit->text())
+    // Check password confirmation
+    if (password != confirm_password)
     {
         show_message("Parolele nu se potrivesc", true);
         register_confirm_password_edit->setFocus();
         return false;
     }
     
-    if (!register_email_edit->hasAcceptableInput() || register_email_edit->text().trimmed().isEmpty())
+    // Validate email
+    if (!Utils::Validation::is_valid_email(email))
     {
-        show_message("Adresa de email nu este valida", true);
+        show_message(Utils::Validation::get_validation_error("email", email), true);
         register_email_edit->setFocus();
         return false;
     }
     
-    if (register_first_name_edit->text().trimmed().isEmpty())
+    // Validate first name
+    if (!Utils::Validation::is_valid_name(first_name))
     {
-        show_message("Prenumele este obligatoriu", true);
+        show_message(Utils::Validation::get_validation_error("name", first_name), true);
         register_first_name_edit->setFocus();
         return false;
     }
     
-    if (register_last_name_edit->text().trimmed().isEmpty())
+    // Validate last name
+    if (!Utils::Validation::is_valid_name(last_name))
     {
-        show_message("Numele este obligatoriu", true);
+        show_message(Utils::Validation::get_validation_error("name", last_name), true);
         register_last_name_edit->setFocus();
         return false;
     }
     
-    if (!register_phone_edit->hasAcceptableInput() || register_phone_edit->text().trimmed().isEmpty())
+    // Validate phone
+    if (!Utils::Validation::is_valid_phone(phone))
     {
-        show_message("Numarul de telefon nu este valid", true);
+        show_message(Utils::Validation::get_validation_error("phone", phone), true);
         register_phone_edit->setFocus();
         return false;
     }
