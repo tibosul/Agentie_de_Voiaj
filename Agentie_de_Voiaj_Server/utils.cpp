@@ -205,33 +205,40 @@ namespace Utils
 				return std::isalnum(c) || c == '_' || c == '-';
 			});
 		}
+
 		bool is_valid_password(const std::string& password)
 		{
 			return password.length() >= 6 && password.length() <= 100;
 		}
+
 		bool is_valid_email(const std::string& email)
 		{
 			std::regex email_regex(R"((\w+)(\.\w+)*@(\w+)(\.\w+)+)");
 			return std::regex_match(email, email_regex);
 		}
+
 		bool is_valid_phone_number(const std::string& phone)
 		{
 			std::regex phone_regex(R"(\+?[0-9\s\-()]{7,15})");
 			return std::regex_match(phone, phone_regex);
 		}
+
 		bool is_valid_cnp(const std::string& cnp)
 		{
 			std::regex cnp_regex(R"(\d{13})");
 			return std::regex_match(cnp, cnp_regex);
 		}
+
 		bool is_positive_number(double value)
 		{
 			return value > 0;
 		}
+
 		bool is_valid_price_range(double min_price, double max_price)
 		{
 			return min_price >= 0 && max_price >= min_price;
 		}
+
 		bool is_valid_person_count(int count)
 		{
 			return count > 0 && count <= 100; // Assuming a maximum of 100 persons
@@ -246,6 +253,7 @@ namespace Utils
 			oss << std::fixed << std::setprecision(precision) << value;
 			return oss.str();
 		}
+
 		double string_to_double(const std::string& str)
 		{
 			try
@@ -257,6 +265,7 @@ namespace Utils
 				return 0.0; // or throw an exception
 			}
 		}
+
 		int string_to_int(const std::string& str)
 		{
 			try
@@ -268,14 +277,17 @@ namespace Utils
 				return 0; // or throw an exception
 			}
 		}
+
 		std::string int_to_string(int value)
 		{
 			return std::to_string(value);
 		}
+
 		std::string bool_to_string(bool value)
 		{
 			return value ? "true" : "false";
 		}
+
 		bool string_to_bool(const std::string& str)
 		{
 			return str == "true" || str == "1";

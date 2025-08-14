@@ -477,26 +477,26 @@ void Network_Manager::process_server_response(const QJsonObject& response)
         QJsonValue data = response["data"];
         
         // Check if it's user authentication response
-        if (data.isObject() && data.toObject().contains("username"))
+        if (data.isObject() && (data.toObject().contains("username") || data.toObject().contains("Username")))
         {
             process_authentication_response(response);
         }
         // Check if it's destinations data
         else if (data.isArray() && !data.toArray().isEmpty() && 
-                 data.toArray().first().toObject().contains("name") &&
-                 data.toArray().first().toObject().contains("country"))
+                 (data.toArray().first().toObject().contains("name") || data.toArray().first().toObject().contains("Name")) &&
+                 (data.toArray().first().toObject().contains("country") || data.toArray().first().toObject().contains("Country")))
         {
             process_destinations_response(response);
         }
         // Check if it's offers data
         else if (data.isArray() && !data.toArray().isEmpty() && 
-                 data.toArray().first().toObject().contains("price_per_person"))
+                 (data.toArray().first().toObject().contains("price_per_person") || data.toArray().first().toObject().contains("Price_per_Person")))
         {
             process_offers_response(response);
         }
         // Check if it's reservations data
         else if (data.isArray() && !data.toArray().isEmpty() && 
-                 data.toArray().first().toObject().contains("reservation_date"))
+                 (data.toArray().first().toObject().contains("reservation_date") || data.toArray().first().toObject().contains("Reservation_Date")))
         {
             process_reservations_response(response);
         }
@@ -506,7 +506,7 @@ void Network_Manager::process_server_response(const QJsonObject& response)
             process_booking_response(response);
         }
         // Check if it's user info response
-        else if (data.isObject() && data.toObject().contains("email"))
+        else if (data.isObject() && (data.toObject().contains("email") || data.toObject().contains("Email")))
         {
             process_user_info_response(response);
         }

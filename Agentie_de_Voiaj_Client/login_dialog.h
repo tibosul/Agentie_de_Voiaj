@@ -11,8 +11,10 @@
 #include <QTabWidget>
 #include <QGroupBox>
 #include <QProgressBar>
+#include "network_manager.h"
 
 class Network_Manager;
+struct User_Info;
 
 class Login_Dialog : public QDialog
 {
@@ -27,7 +29,7 @@ signals:
 private slots:
     void on_login_clicked();
     void on_register_clicked();
-    void on_authentication_successful();
+    void on_authentication_successful(const User_Info& user);
     void on_authentication_failed(const QString& error);
     void on_registration_successful();
     void on_registration_failed(const QString& error);

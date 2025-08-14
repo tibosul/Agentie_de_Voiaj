@@ -243,7 +243,7 @@ void Login_Dialog::on_connection_error(const QString& error)
     show_message(Config::ErrorMessages::CONNECTION_FAILED + ": " + error, true);
 }
 
-void Login_Dialog::on_authentication_successful()
+void Login_Dialog::on_authentication_successful(const User_Info& user)
 {
     progress_bar->hide();
     show_message(Config::SuccessMessages::AUTHENTICATION_SUCCESSFUL, false);

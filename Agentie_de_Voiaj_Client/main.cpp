@@ -5,6 +5,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     Main_Window window;
-    window.show();
+    // Don't show main window immediately - it will be shown after successful login
+    // window.show();
     return app.exec();
 }

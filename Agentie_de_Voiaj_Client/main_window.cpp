@@ -10,6 +10,7 @@
 #include <QApplication>
 #include <QTimer>
 #include <QFrame>
+#include <QCloseEvent>
 
 Main_Window::Main_Window(QWidget *parent)
     : QMainWindow(parent), network_manager(nullptr), login_dialog(nullptr)
@@ -27,8 +28,8 @@ Main_Window::Main_Window(QWidget *parent)
     update_ui_for_user_state();
     set_connection_status(Config::StatusMessages::DISCONNECTED, false);
     
-    // Show login dialog on startup
-    QTimer::singleShot(500, this, &Main_Window::show_login_dialog);
+    // Show login dialog immediately on startup (don't show main window yet)
+    QTimer::singleShot(100, this, &Main_Window::show_login_dialog);
 }
 
 Main_Window::~Main_Window()
@@ -429,6 +430,11 @@ void Main_Window::show_login_dialog()
 
 void Main_Window::on_login_successful()
 {
+    // Show the main window only after successful login
+    show();
+    raise();
+    activateWindow();
+    
     update_ui_for_user_state();
     
     // Load initial data
@@ -459,6 +465,10 @@ void Main_Window::on_user_logged_out()
     profile_phone_edit->clear();
     
     show_status_message(Config::SuccessMessages::LOGOUT_SUCCESSFUL);
+    
+    // Hide main window and show login dialog again
+    hide();
+    QTimer::singleShot(500, this, &Main_Window::show_login_dialog);
 }
 
 void Main_Window::on_destinations_received(const QList<Destination_Info>& destinations)
@@ -827,5 +837,16 @@ void Main_Window::set_connection_status(const QString& status, bool is_connected
     connection_status_label->setStyleSheet(is_connected ? "color: green;" : "color: red;");
     
     update_ui_for_user_state();
+}
+
+void Main_Window::closeEvent(QCloseEvent* event)
+{
+    // Gracefully disconnect from server if connected
+    if (network_manager && network_manager->get_connection_status() == Network_Manager::Connection_Status::Connected)
+    {
+        network_manager->disconnect_from_server();
+    }
+    
+    event->accept();
 }
 

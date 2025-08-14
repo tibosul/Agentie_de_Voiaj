@@ -149,5 +149,8 @@ private:
     QLabel* connection_status_label;
     QLabel* user_status_label;
     QProgressBar* operation_progress;
+
+protected:
+    void closeEvent(QCloseEvent* event) override;
 };
 
