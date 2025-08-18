@@ -24,7 +24,7 @@
 #include <sqltypes.h>
 
 // Utils header
-#include "utils.h"
+#include "utils/utils.h"
 
 #pragma comment(lib, "odbc32.lib")
 

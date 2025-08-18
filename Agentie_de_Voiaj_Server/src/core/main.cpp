@@ -1,6 +1,6 @@
-#include "utils.h"
-#include "Database_Manager.h"
-#include "Socket_Server.h"
+#include "utils/utils.h"
+#include "database/Database_Manager.h"
+#include "network/Socket_Server.h"
 #include "config.h"
 #include <iostream>
 #include <thread>
@@ -26,6 +26,9 @@ void signal_handler(int signal)
 
 int main()
 {
+    // Initialize logging system first
+    Utils::Logger::initialize_logging();
+    
     std::cout << "=== AGENTIE DE VOIAJ SERVER ===" << std::endl;
     std::cout << "Version: " << Config::Application::VERSION << std::endl;
     std::cout << "Debug Mode: " << (Config::Application::DEBUG_MODE ? "ON" : "OFF") << std::endl;
@@ -40,7 +43,7 @@ int main()
     try 
     {
         // Create database manager - try multiple server options
-        std::cout << "Initializing database manager..." << std::endl;
+        Utils::Logger::info("Initializing database manager...");
         
         std::vector<std::string> server_options = {
             "localhost",
@@ -55,7 +58,7 @@ int main()
         
         for (const auto& server : server_options)
         {
-            std::cout << "Trying server: " << server << std::endl;
+            Utils::Logger::debug("Trying database server: " + server);
             db_manager = std::make_shared<Database_Manager>(
                 server,
                 Config::Database::DEFAULT_DATABASE,
@@ -65,13 +68,13 @@ int main()
             
             if (db_manager->connect())
             {
-                std::cout << "Connected to server: " << server << std::endl;
+                Utils::Logger::info("Connected to database server: " + server);
                 connected = true;
                 break;
             }
             else
             {
-                std::cout << "  Failed: " << db_manager->get_last_error() << std::endl;
+                Utils::Logger::warning("Database connection failed: " + db_manager->get_last_error());
             }
         }
         
@@ -97,22 +100,22 @@ int main()
         }
         if (connected)
         {
-            std::cout << "Database connection successful" << std::endl;
+            Utils::Logger::info("Database connection successful");
             
             // Create database tables if not exist
-            std::cout << "Creating database schema..." << std::endl;
+            Utils::Logger::info("Creating database schema...");
             if (!db_manager->create_tables_if_not_exists())
             {
-                std::cout << "Warning: Could not create/verify all database tables" << std::endl;
+                Utils::Logger::warning("Could not create/verify all database tables");
             }
             else
             {
-                std::cout << "Database schema ready" << std::endl;
+                Utils::Logger::info("Database schema ready");
             }
         }
         else
         {
-            std::cout << "  Database functionality disabled" << std::endl;
+            Utils::Logger::warning("Database functionality disabled - running in fallback mode");
         }
         
         // Create server configuration
@@ -123,7 +126,7 @@ int main()
         config.enable_logging = Config::Application::DEBUG_MODE;
         
         // Create and configure server
-        std::cout << "Creating server..." << std::endl;
+        Utils::Logger::info("Creating server...");
         Socket_Server server(config);
         g_server = &server; // For signal handler
         
@@ -135,18 +138,20 @@ int main()
             std::cerr << "ERROR: Server initialization failed!" << std::endl;
             return -1;
         }
-        std::cout << "Server initialized" << std::endl;
+        Utils::Logger::info("Server initialized successfully");
         
         // Start server
-        std::cout << "Starting server on " << config.ip_address << ":" << config.port << "..." << std::endl;
+        Utils::Logger::info("Starting server on " + config.ip_address + ":" + std::to_string(config.port) + "...");
         if (!server.start())
         {
             std::cerr << "ERROR: Server startup failed!" << std::endl;
             return -1;
         }
         
-        std::cout << "SERVER STARTED SUCCESSFULLY!" << std::endl;
-        std::cout << "\nServer is running. Press Ctrl+C to shutdown." << std::endl;
+        Utils::Logger::info("=== SERVER STARTED SUCCESSFULLY! ===");
+        Utils::Logger::info("Server is running. Press Ctrl+C to shutdown.");
+        std::cout << "\n" << std::string(50, '=') << std::endl;
+        std::cout << "SERVER RUNNING - Check logs/server_" << Utils::DateTime::get_current_date() << ".log for detailed logs" << std::endl;
         std::cout << std::string(50, '=') << std::endl;
         
         // Main server loop - keep running until interrupted
@@ -154,18 +159,17 @@ int main()
         {
             std::this_thread::sleep_for(std::chrono::seconds(1));
             
-            // Optional: Print server stats every 60 seconds
+            // Optional: Print server stats every 30 seconds
             static int stats_counter = 0;
-            if (++stats_counter >= 60 && Config::Application::DEBUG_MODE)
+            if (++stats_counter >= 30 && Config::Application::DEBUG_MODE)
             {
                 auto stats = server.get_server_stats();
-                std::cout << "\n--- Server Stats ---" << std::endl;
-                std::cout << "Active clients: " << stats.active_clients << std::endl;
-                std::cout << "Total connections: " << stats.total_connections << std::endl;
-                std::cout << "Messages received: " << stats.total_messages_received << std::endl;
-                std::cout << "Messages sent: " << stats.total_messages_sent << std::endl;
-                std::cout << "Uptime: " << stats.uptime << std::endl;
-                std::cout << std::string(20, '-') << std::endl;
+                Utils::Logger::info("=== Server Stats ===");
+                Utils::Logger::info("Active clients: " + std::to_string(stats.active_clients));
+                Utils::Logger::info("Total connections: " + std::to_string(stats.total_connections));
+                Utils::Logger::info("Messages received: " + std::to_string(stats.total_messages_received));
+                Utils::Logger::info("Messages sent: " + std::to_string(stats.total_messages_sent));
+                Utils::Logger::info("Uptime: " + stats.uptime);
                 stats_counter = 0;
             }
         }
@@ -177,6 +181,7 @@ int main()
         return -1;
     }
     
+    Utils::Logger::info("=== Server shutdown complete ===");
     std::cout << "Server shutdown complete." << std::endl;
     return 0;
 }

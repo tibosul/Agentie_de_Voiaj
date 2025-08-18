@@ -112,6 +112,9 @@ namespace Utils
 		void log_to_file(const std::string& filename, const std::string& message);
 		void set_log_level(Level min_level);
 		std::string level_to_string(Level level);
+		void initialize_logging();
+		void enable_file_logging(bool enabled);
+		std::string get_log_filename();
 	}
 
 	// JSON Utilities

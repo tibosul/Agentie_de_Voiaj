@@ -1,4 +1,5 @@
-#include "utils.h"
+#include "utils/utils.h"
+#include "config.h"
 // Windows includes - careful order to avoid conflicts
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -301,7 +302,7 @@ namespace Utils
 			std::string salted_password = password + salt;
 			
 			EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
-			const EVP_MD* md = EVP_md5();
+			const EVP_MD* md = EVP_sha256();
 			unsigned char md_value[EVP_MAX_MD_SIZE];
 			unsigned int md_len;
 
@@ -481,6 +482,8 @@ namespace Utils
 	namespace Logger
 	{
 		static Level current_log_level = Level::DEBUG;
+		static bool file_logging_enabled = true;
+		static bool logging_initialized = false;
 
 		void log(Level level, const std::string& message)
 		{
@@ -495,7 +498,16 @@ namespace Utils
 				case Level::ERR: level_str = "ERROR"; break;
 				case Level::CRITICAL: level_str = "CRITICAL"; break;
 			}
-			std::cout << "[" << DateTime::get_current_date_time() << "] [" << level_str << "] " << message << std::endl;
+			std::string log_message = "[" + DateTime::get_current_date_time() + "] [" + level_str + "] " + message;
+			
+			// Output to console
+			std::cout << log_message << std::endl;
+			
+			// Output to file if enabled
+			if (file_logging_enabled && logging_initialized)
+			{
+				log_to_file(get_log_filename(), log_message);
+			}
 		}
 
 		void debug(const std::string& message)
@@ -554,6 +566,49 @@ namespace Utils
 				default: return "UNKNOWN";
 			}
 		}
+
+		void initialize_logging()
+		{
+			try 
+			{
+				// Create logs directory if it doesn't exist
+				if (!File::create_directory(Config::Application::LOG_DIRECTORY))
+				{
+					std::cerr << "Warning: Could not create logs directory" << std::endl;
+				}
+				
+				logging_initialized = true;
+				
+				// Log startup message
+				info("=== Logging system initialized ===");
+				info("Application: " + Config::Application::APP_NAME + " v" + Config::Application::VERSION);
+				info("Log directory: " + Config::Application::LOG_DIRECTORY);
+				
+			}
+			catch (const std::exception& e)
+			{
+				std::cerr << "Error initializing logging: " << e.what() << std::endl;
+				logging_initialized = false;
+			}
+		}
+
+		void enable_file_logging(bool enabled)
+		{
+			file_logging_enabled = enabled;
+			if (logging_initialized)
+			{
+				std::string status = enabled ? "enabled" : "disabled";
+				info("File logging " + status);
+			}
+		}
+
+		std::string get_log_filename()
+		{
+			std::string date = DateTime::get_current_date();
+			// Replace dashes with underscores for filename
+			std::replace(date.begin(), date.end(), '-', '_');
+			return Config::Application::LOG_DIRECTORY + "server_" + date + ".log";
+		}
 	}
 
 	namespace JSON
@@ -562,7 +617,7 @@ namespace Utils
 		{
 			try
 			{
-				nlohmann::json::parse(json_str);
+				[[maybe_unused]] auto parsed = nlohmann::json::parse(json_str);
 				return true;
 			}
 			catch (const nlohmann::json::parse_error&)

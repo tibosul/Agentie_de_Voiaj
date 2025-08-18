@@ -63,7 +63,7 @@ namespace Config
 		constexpr int MAX_LOGIN_ATTEMPTS = 5;
 		constexpr int LOCKOUT_DURATION_MINUTES = 15;
 		constexpr bool REQUIRE_EMAIL_VALIDATION = false;
-		const std::string PASSWORD_SALT = "travel_agency_2025";
+		// Salt is now per-user (username) for better security
 	}
 
 	// Business Logic Configuration

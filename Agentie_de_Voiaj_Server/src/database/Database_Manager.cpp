@@ -1,18 +1,17 @@
-#include "Database_Manager.h"
+#include "database/Database_Manager.h"
 #include <iostream>
 #include <algorithm>
 #include <cctype>
 
-using namespace Database;
 
 // Constructor
-Database_Manager::Database_Manager() 
+Database::Database_Manager::Database_Manager() 
     : henv(SQL_NULL_HENV), hdbc(SQL_NULL_HDBC), hstmt(SQL_NULL_HSTMT), is_connected(false)
 {
     initialize_handles();
 }
 
-Database_Manager::Database_Manager(const std::string& server, const std::string& database, 
+Database::Database_Manager::Database_Manager(const std::string& server, const std::string& database, 
     const std::string& username, const std::string& password)
     : server(server), database(database), username(username), password(password),
     henv(SQL_NULL_HENV), hdbc(SQL_NULL_HDBC), hstmt(SQL_NULL_HSTMT), is_connected(false)
@@ -22,14 +21,14 @@ Database_Manager::Database_Manager(const std::string& server, const std::string&
 }
 
 // Destructor
-Database_Manager::~Database_Manager()
+Database::Database_Manager::~Database_Manager()
 {
     disconnect();
     cleanup_handles();
 }
 
 // Initialize ODBC handles
-bool Database_Manager::initialize_handles()
+bool Database::Database_Manager::initialize_handles()
 {
     SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
     if (!SQL_SUCCEEDED(ret))
@@ -56,7 +55,7 @@ bool Database_Manager::initialize_handles()
 }
 
 // Cleanup ODBC handles
-void Database_Manager::cleanup_handles()
+void Database::Database_Manager::cleanup_handles()
 {
     if (hstmt != SQL_NULL_HSTMT)
     {
@@ -79,7 +78,7 @@ void Database_Manager::cleanup_handles()
 }
 
 // Build connection string
-std::string Database_Manager::build_connection_string() const
+std::string Database::Database_Manager::build_connection_string() const
 {
     std::stringstream ss;
     ss << "DRIVER={ODBC Driver 17 for SQL Server};"
@@ -105,7 +104,7 @@ std::string Database_Manager::build_connection_string() const
 }
 
 // Connection methods
-bool Database_Manager::connect()
+bool Database::Database_Manager::connect()
 {
     std::lock_guard<std::mutex> lock(db_mutex);
     
@@ -138,14 +137,14 @@ bool Database_Manager::connect()
     }
 }
 
-bool Database_Manager::connect(const std::string& server, const std::string& database,
+bool Database::Database_Manager::connect(const std::string& server, const std::string& database,
     const std::string& username, const std::string& password)
 {
     set_configuration_params(server, database, username, password);
     return connect();
 }
 
-bool Database_Manager::disconnect()
+bool Database::Database_Manager::disconnect()
 {
     std::lock_guard<std::mutex> lock(db_mutex);
     
@@ -160,7 +159,7 @@ bool Database_Manager::disconnect()
     return SQL_SUCCEEDED(ret);
 }
 
-bool Database_Manager::is_connection_alive() const
+bool Database::Database_Manager::is_connection_alive() const
 {
     if (!is_connected) return false;
     
@@ -168,13 +167,13 @@ bool Database_Manager::is_connection_alive() const
     return SQL_SUCCEEDED(ret);
 }
 
-bool Database_Manager::reconnect()
+bool Database::Database_Manager::reconnect()
 {
     disconnect();
     return connect();
 }
 
-void Database_Manager::set_configuration_params(const std::string& server, const std::string& database,
+void Database::Database_Manager::set_configuration_params(const std::string& server, const std::string& database,
     const std::string& username, const std::string& password)
 {
     this->server = server;
@@ -184,13 +183,13 @@ void Database_Manager::set_configuration_params(const std::string& server, const
     this->connection_string = build_connection_string();
 }
 
-std::string Database_Manager::get_connection_string() const
+std::string Database::Database_Manager::get_connection_string() const
 {
     return connection_string;
 }
 
 // Query execution methods
-Query_Result Database_Manager::execute_query(const std::string& query)
+Database::Query_Result Database::Database_Manager::execute_query(const std::string& query)
 {
     std::lock_guard<std::mutex> lock(db_mutex);
     
@@ -233,28 +232,28 @@ Query_Result Database_Manager::execute_query(const std::string& query)
     }
 }
 
-Query_Result Database_Manager::execute_select(const std::string& query)
+Database::Query_Result Database::Database_Manager::execute_select(const std::string& query)
 {
     return execute_query(query);
 }
 
-Query_Result Database_Manager::execute_insert(const std::string& query)
+Database::Query_Result Database::Database_Manager::execute_insert(const std::string& query)
 {
     return execute_query(query);
 }
 
-Query_Result Database_Manager::execute_update(const std::string& query)
+Database::Query_Result Database::Database_Manager::execute_update(const std::string& query)
 {
     return execute_query(query);
 }
 
-Query_Result Database_Manager::execute_delete(const std::string& query)
+Database::Query_Result Database::Database_Manager::execute_delete(const std::string& query)
 {
     return execute_query(query);
 }
 
 // Process SELECT result
-Query_Result Database_Manager::process_select_result()
+Database::Query_Result Database::Database_Manager::process_select_result()
 {
     Query_Result result;
     SQLSMALLINT columns;
@@ -307,9 +306,9 @@ Query_Result Database_Manager::process_select_result()
 }
 
 // Process non-SELECT result
-Query_Result Database_Manager::process_execution_result()
+Database::Query_Result Database::Database_Manager::process_execution_result()
 {
-    Query_Result result;
+    Database::Query_Result result;
     SQLLEN affected_rows;
     SQLRETURN ret = SQLRowCount(hstmt, &affected_rows);
     
@@ -322,14 +321,14 @@ Query_Result Database_Manager::process_execution_result()
 }
 
 // Error handling
-bool Database_Manager::handle_sql_error(SQLSMALLINT handle_type, SQLHANDLE handle)
+bool Database::Database_Manager::handle_sql_error(SQLSMALLINT handle_type, SQLHANDLE handle)
 {
     std::string error = get_sql_error(handle_type, handle);
     log_error("SQL Error", error);
     return false;
 }
 
-std::string Database_Manager::get_sql_error(SQLSMALLINT handle_type, SQLHANDLE handle)
+std::string Database::Database_Manager::get_sql_error(SQLSMALLINT handle_type, SQLHANDLE handle)
 {
     SQLCHAR sql_state[6];
     SQLCHAR error_msg[1024];
@@ -350,41 +349,41 @@ std::string Database_Manager::get_sql_error(SQLSMALLINT handle_type, SQLHANDLE h
     return "Unknown SQL error";
 }
 
-std::string Database_Manager::get_last_error()
+std::string Database::Database_Manager::get_last_error()
 {
     return get_sql_error(SQL_HANDLE_STMT, hstmt);
 }
 
-void Database_Manager::log_error(const std::string& operation, const std::string& error)
+void Database::Database_Manager::log_error(const std::string& operation, const std::string& error)
 {
     Utils::Logger::error("[Database] " + operation + ": " + error);
 }
 
 // Utility methods
-std::string Database_Manager::escape_string(const std::string& input)
+std::string Database::Database_Manager::escape_string(const std::string& input)
 {
     return Utils::String::escape_SQL(input);
 }
 
-std::string Database_Manager::format_date_for_sql(const std::string& date)
+std::string Database::Database_Manager::format_date_for_sql(const std::string& date)
 {
     return "'" + date + "'";
 }
 
-bool Database_Manager::validate_connection_params()
+bool Database::Database_Manager::validate_connection_params()
 {
     return !server.empty() && !database.empty() && !username.empty();
 }
 
 // Transaction methods
-bool Database_Manager::begin_transaction()
+bool Database::Database_Manager::begin_transaction()
 {
     std::lock_guard<std::mutex> lock(db_mutex);
     SQLRETURN ret = SQLSetConnectAttr(hdbc, SQL_ATTR_AUTOCOMMIT, (SQLPOINTER)SQL_AUTOCOMMIT_OFF, SQL_IS_UINTEGER);
     return SQL_SUCCEEDED(ret);
 }
 
-bool Database_Manager::commit_transaction()
+bool Database::Database_Manager::commit_transaction()
 {
     std::lock_guard<std::mutex> lock(db_mutex);
     SQLRETURN ret = SQLEndTran(SQL_HANDLE_DBC, hdbc, SQL_COMMIT);
@@ -392,7 +391,7 @@ bool Database_Manager::commit_transaction()
     return SQL_SUCCEEDED(ret);
 }
 
-bool Database_Manager::rollback_transaction()
+bool Database::Database_Manager::rollback_transaction()
 {
     std::lock_guard<std::mutex> lock(db_mutex);
     SQLRETURN ret = SQLEndTran(SQL_HANDLE_DBC, hdbc, SQL_ROLLBACK);
@@ -400,7 +399,7 @@ bool Database_Manager::rollback_transaction()
     return SQL_SUCCEEDED(ret);
 }
 
-Query_Result Database_Manager::execute_transaction(const std::vector<std::string>& queries)
+Database::Query_Result Database::Database_Manager::execute_transaction(const std::vector<std::string>& queries)
 {
     if (!begin_transaction())
     {
@@ -427,7 +426,7 @@ Query_Result Database_Manager::execute_transaction(const std::vector<std::string
 }
 
 // User authentication and management
-Query_Result Database_Manager::authenticate_user(const std::string& username, const std::string& password)
+Database::Query_Result Database::Database_Manager::authenticate_user(const std::string& username, const std::string& password)
 {
     if (!Utils::Validation::is_valid_username(username) || Utils::String::is_empty(password))
     {
@@ -440,28 +439,27 @@ Query_Result Database_Manager::authenticate_user(const std::string& username, co
     return execute_select(query);
 }
 
-Query_Result Database_Manager::register_user(const User_Data& user_data)
+Database::Query_Result Database::Database_Manager::register_user(const User_Data& user_data)
 {
     // Validate user data
     if (!Utils::Validation::is_valid_username(user_data.username))
     {
-        return Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid username format");
+        return Database::Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid username format");
     }
     if (!Utils::Validation::is_valid_email(user_data.email))
     {
-        return Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid email format");
+        return Database::Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid email format");
     }
     if (!Utils::Validation::is_valid_password(user_data.password_hash))
     {
-        return Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid password format");
+        return Database::Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid password format");
     }
     if (!user_data.phone_number.empty() && !Utils::Validation::is_valid_phone_number(user_data.phone_number))
     {
-        return Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid phone number format");
+        return Database::Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid phone number format");
     }
     
-    std::string salt = generate_salt();
-    std::string hashed_password = hash_password(user_data.password_hash, salt);
+    std::string hashed_password = hash_password(user_data.password_hash, user_data.username);
     
     std::stringstream query;
     query << "INSERT INTO Users (Username, Password_Hash, Email, First_Name, Last_Name, Phone) VALUES ('"
@@ -475,19 +473,19 @@ Query_Result Database_Manager::register_user(const User_Data& user_data)
     return execute_insert(query.str());
 }
 
-Query_Result Database_Manager::get_user_by_id(int user_id)
+Database::Query_Result Database::Database_Manager::get_user_by_id(int user_id)
 {
     std::string query = "SELECT User_ID, Username, Email, First_Name, Last_Name, Phone, Date_Created, Date_Modified FROM Users WHERE User_ID = " + std::to_string(user_id);
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_user_by_username(const std::string& username)
+Database::Query_Result Database::Database_Manager::get_user_by_username(const std::string& username)
 {
     std::string query = "SELECT User_ID, Username, Email, First_Name, Last_Name, Phone, Date_Created, Date_Modified FROM Users WHERE Username = '" + escape_string(username) + "'";
     return execute_select(query);
 }
 
-Query_Result Database_Manager::update_user(const User_Data& user)
+Database::Query_Result Database::Database_Manager::update_user(const User_Data& user)
 {
     std::stringstream query;
     query << "UPDATE Users SET "
@@ -501,16 +499,16 @@ Query_Result Database_Manager::update_user(const User_Data& user)
     return execute_update(query.str());
 }
 
-Query_Result Database_Manager::delete_user(int user_id)
+Database::Query_Result Database::Database_Manager::delete_user(int user_id)
 {
     std::string query = "DELETE FROM Users WHERE User_ID = " + std::to_string(user_id);
     return execute_delete(query);
 }
 
-Query_Result Database_Manager::change_password(int user_id, const std::string& old_password, const std::string& new_password)
+Database::Query_Result Database::Database_Manager::change_password(int user_id, const std::string& old_password, const std::string& new_password)
 {
     // First verify old password
-    Query_Result user_result = get_user_by_id(user_id);
+    Database::Query_Result user_result = get_user_by_id(user_id);
     if (!user_result.is_success() || user_result.data.empty())
     {
         return Query_Result(Result_Type::DB_ERROR_NO_DATA, "User not found");
@@ -537,40 +535,40 @@ Query_Result Database_Manager::change_password(int user_id, const std::string& o
 }
 
 // Static utility methods
-std::string Database_Manager::hash_password(const std::string& password, const std::string& salt)
+std::string Database::Database_Manager::hash_password(const std::string& password, const std::string& salt)
 {
     return Utils::Crypto::hash_password(password, salt);
 }
 
-std::string Database_Manager::generate_salt()
+std::string Database::Database_Manager::generate_salt()
 {
     return Utils::Crypto::generate_salt();
 }
 
-bool Database_Manager::validate_email(const std::string& email)
+bool Database::Database_Manager::validate_email(const std::string& email)
 {
     return Utils::Validation::is_valid_email(email);
 }
 
-bool Database_Manager::validate_cnp(const std::string& cnp)
+bool Database::Database_Manager::validate_cnp(const std::string& cnp)
 {
     return Utils::Validation::is_valid_cnp(cnp);
 }
 
 // Destination management
-Query_Result Database_Manager::get_all_destinations()
+Database::Query_Result Database::Database_Manager::get_all_destinations()
 {
     std::string query = "SELECT Destination_ID, Name, Country, Description, Image_Path, Date_Created, Date_Modified FROM Destinations ORDER BY Name";
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_destination_by_id(int destination_id)
+Database::Query_Result Database::Database_Manager::get_destination_by_id(int destination_id)
 {
     std::string query = "SELECT Destination_ID, Name, Country, Description, Image_Path, Date_Created, Date_Modified FROM Destinations WHERE Destination_ID = " + std::to_string(destination_id);
     return execute_select(query);
 }
 
-Query_Result Database_Manager::add_destination(const Destination_Data& destination)
+Database::Query_Result Database::Database_Manager::add_destination(const Destination_Data& destination)
 {
     std::stringstream query;
     query << "INSERT INTO Destinations (Name, Country, Description, Image_Path) VALUES ('"
@@ -582,7 +580,7 @@ Query_Result Database_Manager::add_destination(const Destination_Data& destinati
     return execute_insert(query.str());
 }
 
-Query_Result Database_Manager::update_destination(const Destination_Data& destination)
+Database::Query_Result Database::Database_Manager::update_destination(const Destination_Data& destination)
 {
     std::stringstream query;
     query << "UPDATE Destinations SET "
@@ -596,26 +594,26 @@ Query_Result Database_Manager::update_destination(const Destination_Data& destin
     return execute_update(query.str());
 }
 
-Query_Result Database_Manager::delete_destination(int destination_id)
+Database::Query_Result Database::Database_Manager::delete_destination(int destination_id)
 {
     std::string query = "DELETE FROM Destinations WHERE Destination_ID = " + std::to_string(destination_id);
     return execute_delete(query);
 }
 
 // Transport types management
-Query_Result Database_Manager::get_all_transport_types()
+Database::Query_Result Database::Database_Manager::get_all_transport_types()
 {
     std::string query = "SELECT Transport_Type_ID, Name, Description, Date_Created, Date_Modified FROM Types_of_Transport ORDER BY Name";
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_transport_type_by_id(int transport_type_id)
+Database::Query_Result Database::Database_Manager::get_transport_type_by_id(int transport_type_id)
 {
     std::string query = "SELECT Transport_Type_ID, Name, Description, Date_Created, Date_Modified FROM Types_of_Transport WHERE Transport_Type_ID = " + std::to_string(transport_type_id);
     return execute_select(query);
 }
 
-Query_Result Database_Manager::add_transport_type(const Transport_Type_Data& transport_type)
+Database::Query_Result Database::Database_Manager::add_transport_type(const Transport_Type_Data& transport_type)
 {
     std::stringstream query;
     query << "INSERT INTO Types_of_Transport (Name, Description) VALUES ('"
@@ -625,7 +623,7 @@ Query_Result Database_Manager::add_transport_type(const Transport_Type_Data& tra
     return execute_insert(query.str());
 }
 
-Query_Result Database_Manager::update_transport_type(const Transport_Type_Data& transport_type)
+Database::Query_Result Database::Database_Manager::update_transport_type(const Transport_Type_Data& transport_type)
 {
     std::stringstream query;
     query << "UPDATE Types_of_Transport SET "
@@ -637,26 +635,26 @@ Query_Result Database_Manager::update_transport_type(const Transport_Type_Data& 
     return execute_update(query.str());
 }
 
-Query_Result Database_Manager::delete_transport_type(int transport_type_id)
+Database::Query_Result Database::Database_Manager::delete_transport_type(int transport_type_id)
 {
     std::string query = "DELETE FROM Types_of_Transport WHERE Transport_Type_ID = " + std::to_string(transport_type_id);
     return execute_delete(query);
 }
 
 // Accommodation types management
-Query_Result Database_Manager::get_all_accommodation_types()
+Database::Query_Result Database::Database_Manager::get_all_accommodation_types()
 {
     std::string query = "SELECT Accommodation_Type_ID, Name, Description, Date_Created, Date_Modified FROM Types_of_Accommodation ORDER BY Name";
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_accommodation_type_by_id(int accommodation_type_id)
+Database::Query_Result Database::Database_Manager::get_accommodation_type_by_id(int accommodation_type_id)
 {
     std::string query = "SELECT Accommodation_Type_ID, Name, Description, Date_Created, Date_Modified FROM Types_of_Accommodation WHERE Accommodation_Type_ID = " + std::to_string(accommodation_type_id);
     return execute_select(query);
 }
 
-Query_Result Database_Manager::add_accommodation_type(const Accommodation_Type_Data& accommodation_type)
+Database::Query_Result Database::Database_Manager::add_accommodation_type(const Accommodation_Type_Data& accommodation_type)
 {
     std::stringstream query;
     query << "INSERT INTO Types_of_Accommodation (Name, Description) VALUES ('"
@@ -666,7 +664,7 @@ Query_Result Database_Manager::add_accommodation_type(const Accommodation_Type_D
     return execute_insert(query.str());
 }
 
-Query_Result Database_Manager::update_accommodation_type(const Accommodation_Type_Data& accommodation_type)
+Database::Query_Result Database::Database_Manager::update_accommodation_type(const Accommodation_Type_Data& accommodation_type)
 {
     std::stringstream query;
     query << "UPDATE Types_of_Accommodation SET "
@@ -678,14 +676,14 @@ Query_Result Database_Manager::update_accommodation_type(const Accommodation_Typ
     return execute_update(query.str());
 }
 
-Query_Result Database_Manager::delete_accommodation_type(int accommodation_type_id)
+Database::Query_Result Database::Database_Manager::delete_accommodation_type(int accommodation_type_id)
 {
     std::string query = "DELETE FROM Types_of_Accommodation WHERE Accommodation_Type_ID = " + std::to_string(accommodation_type_id);
     return execute_delete(query);
 }
 
 // Accommodation management
-Query_Result Database_Manager::get_accommodations_by_destination(int destination_id)
+Database::Query_Result Database::Database_Manager::get_accommodations_by_destination(int destination_id)
 {
     std::string query = "SELECT a.Accommodation_ID, a.Name, a.Destination_ID, a.Type_of_Accommodation, "
                        "a.Category, a.Address, a.Facilities, a.Rating, a.Description, a.Date_Created, a.Date_Modified, "
@@ -695,7 +693,7 @@ Query_Result Database_Manager::get_accommodations_by_destination(int destination
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_accommodation_by_id(int accommodation_id)
+Database::Query_Result Database::Database_Manager::get_accommodation_by_id(int accommodation_id)
 {
     std::string query = "SELECT a.Accommodation_ID, a.Name, a.Destination_ID, a.Type_of_Accommodation, "
                        "a.Category, a.Address, a.Facilities, a.Rating, a.Description, a.Date_Created, a.Date_Modified, "
@@ -705,7 +703,7 @@ Query_Result Database_Manager::get_accommodation_by_id(int accommodation_id)
     return execute_select(query);
 }
 
-Query_Result Database_Manager::add_accommodation(const Accommodation_Data& accommodation)
+Database::Query_Result Database::Database_Manager::add_accommodation(const Accommodation_Data& accommodation)
 {
     std::stringstream query;
     query << "INSERT INTO Accommodations (Name, Destination_ID, Type_of_Accommodation, Category, "
@@ -722,7 +720,7 @@ Query_Result Database_Manager::add_accommodation(const Accommodation_Data& accom
     return execute_insert(query.str());
 }
 
-Query_Result Database_Manager::update_accommodation(const Accommodation_Data& accommodation)
+Database::Query_Result Database::Database_Manager::update_accommodation(const Accommodation_Data& accommodation)
 {
     std::stringstream query;
     query << "UPDATE Accommodations SET "
@@ -740,14 +738,14 @@ Query_Result Database_Manager::update_accommodation(const Accommodation_Data& ac
     return execute_update(query.str());
 }
 
-Query_Result Database_Manager::delete_accommodation(int accommodation_id)
+Database::Query_Result Database::Database_Manager::delete_accommodation(int accommodation_id)
 {
     std::string query = "DELETE FROM Accommodations WHERE Accommodation_ID = " + std::to_string(accommodation_id);
     return execute_delete(query);
 }
 
 // Offer management
-Query_Result Database_Manager::get_all_offers()
+Database::Query_Result Database::Database_Manager::get_all_offers()
 {
     std::string query = "SELECT o.Offer_ID, o.Name, o.Destination_ID, o.Accommodation_ID, o.Types_of_Transport_ID, "
                        "o.Price_per_Person, o.Duration_Days, o.Departure_Date, o.Return_Date, o.Total_Seats, "
@@ -761,7 +759,7 @@ Query_Result Database_Manager::get_all_offers()
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_available_offers()
+Database::Query_Result Database::Database_Manager::get_available_offers()
 {
     std::string query = "SELECT o.Offer_ID, o.Name, o.Destination_ID, o.Accommodation_ID, o.Types_of_Transport_ID, "
                        "o.Price_per_Person, o.Duration_Days, o.Departure_Date, o.Return_Date, o.Total_Seats, "
@@ -776,7 +774,7 @@ Query_Result Database_Manager::get_available_offers()
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_offer_by_id(int offer_id)
+Database::Query_Result Database::Database_Manager::get_offer_by_id(int offer_id)
 {
     std::string query = "SELECT o.Offer_ID, o.Name, o.Destination_ID, o.Accommodation_ID, o.Types_of_Transport_ID, "
                        "o.Price_per_Person, o.Duration_Days, o.Departure_Date, o.Return_Date, o.Total_Seats, "
@@ -790,7 +788,7 @@ Query_Result Database_Manager::get_offer_by_id(int offer_id)
     return execute_select(query);
 }
 
-Query_Result Database_Manager::search_offers(const std::string& destination, double min_price, double max_price,
+Database::Query_Result Database::Database_Manager::search_offers(const std::string& destination, double min_price, double max_price,
     const std::string& start_date, const std::string& end_date)
 {
     // Validate search parameters
@@ -850,7 +848,7 @@ Query_Result Database_Manager::search_offers(const std::string& destination, dou
     return execute_select(query.str());
 }
 
-Query_Result Database_Manager::add_offer(const Trip_Data& offer)
+Database::Query_Result Database::Database_Manager::add_offer(const Trip_Data& offer)
 {
     std::stringstream query;
     query << "INSERT INTO Offers (Name, Destination_ID, Accommodation_ID, Types_of_Transport_ID, "
@@ -873,7 +871,7 @@ Query_Result Database_Manager::add_offer(const Trip_Data& offer)
     return execute_insert(query.str());
 }
 
-Query_Result Database_Manager::update_offer(const Trip_Data& offer)
+Database::Query_Result Database::Database_Manager::update_offer(const Trip_Data& offer)
 {
     std::stringstream query;
     query << "UPDATE Offers SET "
@@ -896,23 +894,23 @@ Query_Result Database_Manager::update_offer(const Trip_Data& offer)
     return execute_update(query.str());
 }
 
-Query_Result Database_Manager::delete_offer(int offer_id)
+Database::Query_Result Database::Database_Manager::delete_offer(int offer_id)
 {
     std::string query = "DELETE FROM Offers WHERE Offer_ID = " + std::to_string(offer_id);
     return execute_delete(query);
 }
 
 // Reservation management
-Query_Result Database_Manager::book_offer(int user_id, int offer_id, int person_count)
+Database::Query_Result Database::Database_Manager::book_offer(int user_id, int offer_id, int person_count)
 {
     // Validate parameters
     if (!Utils::Validation::is_valid_person_count(person_count))
     {
-        return Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid person count");
+        return Database::Query_Result(Database::Result_Type::ERROR_CONSTRAINT, "Invalid person count");
     }
     
     // First check if offer exists and has available seats
-    Query_Result offer_result = get_offer_by_id(offer_id);
+    Database::Query_Result offer_result = get_offer_by_id(offer_id);
     if (!offer_result.is_success() || offer_result.data.empty())
     {
         return Query_Result(Result_Type::DB_ERROR_NO_DATA, "Offer not found");
@@ -970,7 +968,7 @@ Query_Result Database_Manager::book_offer(int user_id, int offer_id, int person_
     return Query_Result(Result_Type::SUCCESS, "Booking created successfully");
 }
 
-Query_Result Database_Manager::get_user_reservations(int user_id)
+Database::Query_Result Database::Database_Manager::get_user_reservations(int user_id)
 {
     std::string query = "SELECT r.Reservation_ID, r.User_ID, r.Offer_ID, r.Number_of_Persons, r.Total_Price, "
                        "r.Reservation_Date, r.Status, r.Notes, "
@@ -982,7 +980,7 @@ Query_Result Database_Manager::get_user_reservations(int user_id)
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_offer_reservations(int offer_id)
+Database::Query_Result Database::Database_Manager::get_offer_reservations(int offer_id)
 {
     std::string query = "SELECT r.Reservation_ID, r.User_ID, r.Offer_ID, r.Number_of_Persons, r.Total_Price, "
                        "r.Reservation_Date, r.Status, r.Notes, "
@@ -993,7 +991,7 @@ Query_Result Database_Manager::get_offer_reservations(int offer_id)
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_reservation_by_id(int reservation_id)
+Database::Query_Result Database::Database_Manager::get_reservation_by_id(int reservation_id)
 {
     std::string query = "SELECT r.Reservation_ID, r.User_ID, r.Offer_ID, r.Number_of_Persons, r.Total_Price, "
                        "r.Reservation_Date, r.Status, r.Notes, "
@@ -1007,13 +1005,13 @@ Query_Result Database_Manager::get_reservation_by_id(int reservation_id)
     return execute_select(query);
 }
 
-Query_Result Database_Manager::cancel_reservation(int reservation_id)
+Database::Query_Result Database::Database_Manager::cancel_reservation(int reservation_id)
 {
     // Get reservation details first
-    Query_Result reservation_result = get_reservation_by_id(reservation_id);
+    Database::Query_Result reservation_result = get_reservation_by_id(reservation_id);
     if (!reservation_result.is_success() || reservation_result.data.empty())
     {
-        return Query_Result(Result_Type::DB_ERROR_NO_DATA, "Reservation not found");
+        return Database::Query_Result(Database::Result_Type::DB_ERROR_NO_DATA, "Reservation not found");
     }
     
     auto reservation_data = reservation_result.data[0];
@@ -1062,7 +1060,7 @@ Query_Result Database_Manager::cancel_reservation(int reservation_id)
     return Query_Result(Result_Type::SUCCESS, "Reservation cancelled successfully");
 }
 
-Query_Result Database_Manager::update_reservation_status(int reservation_id, const std::string& status)
+Database::Query_Result Database::Database_Manager::update_reservation_status(int reservation_id, const std::string& status)
 {
     std::string query = "UPDATE Reservations SET Status = '" + escape_string(status) + 
                        "' WHERE Reservation_ID = " + std::to_string(reservation_id);
@@ -1070,7 +1068,7 @@ Query_Result Database_Manager::update_reservation_status(int reservation_id, con
 }
 
 // Reservation persons management
-Query_Result Database_Manager::add_reservation_person(const Reservation_Person_Data& person_data)
+Database::Query_Result Database::Database_Manager::add_reservation_person(const Reservation_Person_Data& person_data)
 {
     std::stringstream query;
     query << "INSERT INTO Reservation_Persons (Reservation_ID, Full_Name, CNP, Birth_Date, Person_Type) VALUES ("
@@ -1083,7 +1081,7 @@ Query_Result Database_Manager::add_reservation_person(const Reservation_Person_D
     return execute_insert(query.str());
 }
 
-Query_Result Database_Manager::get_reservation_persons(int reservation_id)
+Database::Query_Result Database::Database_Manager::get_reservation_persons(int reservation_id)
 {
     std::string query = "SELECT Reservation_Person_ID, Reservation_ID, Full_Name, CNP, Birth_Date, Person_Type "
                        "FROM Reservation_Persons WHERE Reservation_ID = " + std::to_string(reservation_id) + 
@@ -1091,7 +1089,7 @@ Query_Result Database_Manager::get_reservation_persons(int reservation_id)
     return execute_select(query);
 }
 
-Query_Result Database_Manager::update_reservation_person(const Reservation_Person_Data& person_data)
+Database::Query_Result Database::Database_Manager::update_reservation_person(const Reservation_Person_Data& person_data)
 {
     std::stringstream query;
     query << "UPDATE Reservation_Persons SET "
@@ -1104,14 +1102,14 @@ Query_Result Database_Manager::update_reservation_person(const Reservation_Perso
     return execute_update(query.str());
 }
 
-Query_Result Database_Manager::delete_reservation_person(int person_id)
+Database::Query_Result Database::Database_Manager::delete_reservation_person(int person_id)
 {
     std::string query = "DELETE FROM Reservation_Persons WHERE Reservation_Person_ID = " + std::to_string(person_id);
     return execute_delete(query);
 }
 
 // Statistics and reports
-Query_Result Database_Manager::get_popular_destinations(int limit)
+Database::Query_Result Database::Database_Manager::get_popular_destinations(int limit)
 {
     std::string query = "SELECT TOP " + Utils::Conversion::int_to_string(limit) + 
                        " d.Destination_ID, d.Name, d.Country, COUNT(r.Reservation_ID) as Booking_Count "
@@ -1123,7 +1121,7 @@ Query_Result Database_Manager::get_popular_destinations(int limit)
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_revenue_report(const std::string& start_date, const std::string& end_date)
+Database::Query_Result Database::Database_Manager::get_revenue_report(const std::string& start_date, const std::string& end_date)
 {
     std::stringstream query;
     query << "SELECT "
@@ -1147,7 +1145,7 @@ Query_Result Database_Manager::get_revenue_report(const std::string& start_date,
     return execute_select(query.str());
 }
 
-Query_Result Database_Manager::get_user_statistics()
+Database::Query_Result Database::Database_Manager::get_user_statistics()
 {
     std::string query = "SELECT "
                        "COUNT(*) as Total_Users, "
@@ -1157,7 +1155,7 @@ Query_Result Database_Manager::get_user_statistics()
     return execute_select(query);
 }
 
-Query_Result Database_Manager::get_booking_statistics()
+Database::Query_Result Database::Database_Manager::get_booking_statistics()
 {
     std::string query = "SELECT "
                        "COUNT(*) as Total_Bookings, "
@@ -1171,7 +1169,7 @@ Query_Result Database_Manager::get_booking_statistics()
 }
 
 // Additional utility methods
-Query_Result Database_Manager::execute_prepared(const std::string& query, const std::vector<std::pair<std::string, std::string>>& params)
+Database::Query_Result Database::Database_Manager::execute_prepared(const std::string& query, const std::vector<std::pair<std::string, std::string>>& params)
 {
     // Basic implementation - for production, use proper prepared statements
     std::string prepared_query = query;
@@ -1186,7 +1184,7 @@ Query_Result Database_Manager::execute_prepared(const std::string& query, const 
     return execute_query(prepared_query);
 }
 
-Query_Result Database_Manager::execute_stored_procedure(const std::string& procedure_name, const std::vector<std::string>& params)
+Database::Query_Result Database::Database_Manager::execute_stored_procedure(const std::string& procedure_name, const std::vector<std::string>& params)
 {
     std::stringstream query;
     query << "EXEC " << procedure_name;
@@ -1201,19 +1199,19 @@ Query_Result Database_Manager::execute_stored_procedure(const std::string& proce
     return execute_query(query.str());
 }
 
-bool Database_Manager::table_exists(const std::string& table_name)
+bool Database::Database_Manager::table_exists(const std::string& table_name)
 {
     std::string query = "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '" + escape_string(table_name) + "'";
-    Query_Result result = execute_select(query);
+    Database::Query_Result result = execute_select(query);
     return result.is_success() && !result.data.empty();
 }
 
-std::vector<std::string> Database_Manager::get_table_columns(const std::string& table_name)
+std::vector<std::string> Database::Database_Manager::get_table_columns(const std::string& table_name)
 {
     std::vector<std::string> columns;
     std::string query = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '" + 
                        escape_string(table_name) + "' ORDER BY ORDINAL_POSITION";
-    Query_Result result = execute_select(query);
+    Database::Query_Result result = execute_select(query);
     
     if (result.is_success())
     {
@@ -1226,7 +1224,7 @@ std::vector<std::string> Database_Manager::get_table_columns(const std::string& 
     return columns;
 }
 
-bool Database_Manager::create_tables_if_not_exists()
+bool Database::Database_Manager::create_tables_if_not_exists()
 {
     std::vector<std::string> create_queries = {
         get_create_users_table_sql(),
@@ -1253,7 +1251,7 @@ bool Database_Manager::create_tables_if_not_exists()
     return true;
 }
 
-bool Database_Manager::retry_operation(std::function<bool()> operation, int max_attempts)
+bool Database::Database_Manager::retry_operation(std::function<bool()> operation, int max_attempts)
 {
     for (int attempt = 1; attempt <= max_attempts; ++attempt)
     {
@@ -1272,7 +1270,7 @@ bool Database_Manager::retry_operation(std::function<bool()> operation, int max_
 }
 
 // Private table creation methods
-std::string Database_Manager::get_create_users_table_sql()
+std::string Database::Database_Manager::get_create_users_table_sql()
 {
     return R"(
         IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.Users') AND type = 'U')
@@ -1292,7 +1290,7 @@ std::string Database_Manager::get_create_users_table_sql()
     )";
 }
 
-std::string Database_Manager::get_create_destinations_table_sql()
+std::string Database::Database_Manager::get_create_destinations_table_sql()
 {
     return R"(
         IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.Destinations') AND type = 'U')
@@ -1310,7 +1308,7 @@ std::string Database_Manager::get_create_destinations_table_sql()
     )";
 }
 
-std::string Database_Manager::get_create_transport_types_table_sql()
+std::string Database::Database_Manager::get_create_transport_types_table_sql()
 {
     return R"(
         IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.Types_of_Transport') AND type = 'U')
@@ -1326,7 +1324,7 @@ std::string Database_Manager::get_create_transport_types_table_sql()
     )";
 }
 
-std::string Database_Manager::get_create_accommodation_types_table_sql()
+std::string Database::Database_Manager::get_create_accommodation_types_table_sql()
 {
     return R"(
         IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.Types_of_Accommodation') AND type = 'U')
@@ -1342,7 +1340,7 @@ std::string Database_Manager::get_create_accommodation_types_table_sql()
     )";
 }
 
-std::string Database_Manager::get_create_accommodations_table_sql()
+std::string Database::Database_Manager::get_create_accommodations_table_sql()
 {
     return R"(
         IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.Accommodations') AND type = 'U')
@@ -1366,7 +1364,7 @@ std::string Database_Manager::get_create_accommodations_table_sql()
     )";
 }
 
-std::string Database_Manager::get_create_offers_table_sql()
+std::string Database::Database_Manager::get_create_offers_table_sql()
 {
     return R"(
         IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.Offers') AND type = 'U')
@@ -1397,7 +1395,7 @@ std::string Database_Manager::get_create_offers_table_sql()
     )";
 }
 
-std::string Database_Manager::get_create_reservations_table_sql()
+std::string Database::Database_Manager::get_create_reservations_table_sql()
 {
     return R"(
         IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.Reservations') AND type = 'U')
@@ -1419,7 +1417,7 @@ std::string Database_Manager::get_create_reservations_table_sql()
     )";
 }
 
-std::string Database_Manager::get_create_reservation_persons_table_sql()
+std::string Database::Database_Manager::get_create_reservation_persons_table_sql()
 {
     return R"(
         IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.Reservation_Persons') AND type = 'U')
@@ -1437,7 +1435,7 @@ std::string Database_Manager::get_create_reservation_persons_table_sql()
     )";
 }
 
-std::string Database_Manager::get_create_indexes_sql()
+std::string Database::Database_Manager::get_create_indexes_sql()
 {
     return R"(
         IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Users_Username')
