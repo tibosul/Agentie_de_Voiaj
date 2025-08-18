@@ -26,7 +26,7 @@ namespace SocketNetwork
 	class Client_Handler
 	{
 	private:
-		SOCKET client_socket;
+		SocketRAII client_socket;
 		Client_Info client_info;
 		std::shared_ptr<Database::Database_Manager> db_manager;
 		Protocol_Handler* protocol_handler;

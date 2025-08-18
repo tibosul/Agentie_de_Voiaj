@@ -103,6 +103,68 @@ namespace SocketNetwork
 			: success(s), message(msg), data(d)
 		{
 		}
+		
+		Response(bool s, const std::string& msg, const std::string& d, int code)
+			: success(s), message(msg), data(d), error_code(code)
+		{
+		}
+	};
+
+	class SocketRAII
+	{
+	private:
+		SOCKET socket;
+	public:
+		explicit SocketRAII(SOCKET s = INVALID_SOCKET) : socket(s) {}
+		~SocketRAII()
+		{
+			if(socket != INVALID_SOCKET)
+			{
+				closesocket(socket);
+				socket = INVALID_SOCKET;
+			}
+		}
+
+		SocketRAII(const SocketRAII&) = delete;
+		SocketRAII& operator=(const SocketRAII&) = delete;
+
+		SocketRAII(SocketRAII&& other) noexcept : socket(other.socket)
+		{
+			other.socket = INVALID_SOCKET;
+		}
+		SocketRAII& operator=(SocketRAII&& other) noexcept
+		{
+			if (this != &other)
+			{
+				if (socket != INVALID_SOCKET)
+				{
+					closesocket(socket);
+				}
+				socket = other.socket;
+				other.socket = INVALID_SOCKET;
+			}
+			return *this;
+		}
+
+		operator SOCKET() const	{ return socket; }
+		bool is_valid() const { return socket != INVALID_SOCKET; }
+
+		void reset(SOCKET s = INVALID_SOCKET)
+		{
+			if (socket != INVALID_SOCKET)
+			{
+				closesocket(socket);
+			}
+			socket = s;
+		}
+
+		SOCKET release()
+		{
+			SOCKET temp = socket;
+			socket = INVALID_SOCKET;
+			return temp;
+		}
+
 	};
 
 	// Forward declarations

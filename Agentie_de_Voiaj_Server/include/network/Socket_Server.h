@@ -32,7 +32,7 @@ namespace SocketNetwork
 	class Socket_Server
 	{
 	private:
-		SOCKET server_socket;
+		SocketRAII server_socket;
 		Server_Config config;
 		std::shared_ptr<Database::Database_Manager> db_manager;
 		std::unique_ptr<Protocol_Handler> protocol_handler;

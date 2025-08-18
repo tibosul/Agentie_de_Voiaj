@@ -189,9 +189,25 @@ SocketNetwork::Response SocketNetwork::Protocol_Handler::process_message(const S
                 return Response(false, "Unsupported message type");
         }
     }
+    catch (const Utils::Exceptions::DatabaseException& e)
+    {
+        Utils::Logger::error("Database error: " + std::string(e.what()));
+        return Response(false, Config::ErrorMessages::DB_CONNECTION_FAILED, "", e.error_code());
+    }
+    catch (const Utils::Exceptions::NetworkException& e)
+    {
+        Utils::Logger::error("Network error: " + std::string(e.what()));
+        return Response(false, Config::ErrorMessages::SOCKET_COMM_ERROR, "", e.error_code());
+    }
+    catch (const Utils::Exceptions::ValidationException& e)
+    {
+        Utils::Logger::warning("Validation error: " + std::string(e.what()));
+        return Response(false, e.message(), "", e.error_code());
+    }
     catch (const std::exception& e)
     {
-        return Response(false, Config::ErrorMessages::SERVER_ERROR + ": " + std::string(e.what()));
+        Utils::Logger::critical("Unexpected error: " + std::string(e.what()));
+        return Response(false, Config::ErrorMessages::SERVER_ERROR);
     }
 }
 

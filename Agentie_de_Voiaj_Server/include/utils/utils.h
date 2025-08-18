@@ -4,6 +4,7 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
+#include <exception>
 #include <nlohmann/json.hpp>
 
 namespace Utils
@@ -163,5 +164,56 @@ namespace Utils
 		void start_operation(const std::string& operation_name);
 		void end_operation(const std::string& operation_name);
 		void log_performance(const std::string& operation, double duration_ms);
+	}
+
+	namespace Exceptions
+	{
+		class BaseException : public std::exception
+		{
+		protected:
+			std::string message_;
+			int error_code_;
+
+		public:
+			BaseException(const std::string& message, int code = -1)
+				: message_(message), error_code_(code) {
+			}
+
+			const char* what() const noexcept override { return message_.c_str(); }
+			int error_code() const { return error_code_; }
+			const std::string& message() const { return message_; }
+		};
+
+		class DatabaseException : public BaseException
+		{
+		public:
+			DatabaseException(const std::string& message, int code = -1)
+				: BaseException("[DATABASE] " + message, code) {
+			}
+		};
+
+		class NetworkException : public BaseException
+		{
+		public:
+			NetworkException(const std::string& message, int code = -1)
+				: BaseException("[NETWORK] " + message, code) {
+			}
+		};
+
+		class ValidationException : public BaseException
+		{
+		public:
+			ValidationException(const std::string& message, int code = -1)
+				: BaseException("[VALIDATION] " + message, code) {
+			}
+		};
+
+		class ConfigurationException : public BaseException
+		{
+		public:
+			ConfigurationException(const std::string& message, int code = -1)
+				: BaseException("[CONFIG] " + message, code) {
+			}
+		};
 	}
 }

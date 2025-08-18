@@ -13,7 +13,7 @@
 // ============================================================================
 
 SocketNetwork::Socket_Server::Socket_Server()
-    : server_socket(INVALID_SOCKET), is_running(false), is_initialized(false),
+    : server_socket(), is_running(false), is_initialized(false),
       client_count(0), total_connections(0), total_messages_received(0), total_messages_sent(0)
 {
     server_start_time = Utils::DateTime::get_current_date_time();
@@ -21,7 +21,7 @@ SocketNetwork::Socket_Server::Socket_Server()
 }
 
 SocketNetwork::Socket_Server::Socket_Server(const Server_Config& config)
-    : server_socket(INVALID_SOCKET), config(config), is_running(false), is_initialized(false),
+    : server_socket(), config(config), is_running(false), is_initialized(false),
       client_count(0), total_connections(0), total_messages_received(0), total_messages_sent(0)
 {
     server_start_time = Utils::DateTime::get_current_date_time();
@@ -30,7 +30,7 @@ SocketNetwork::Socket_Server::Socket_Server(const Server_Config& config)
 }
 
 SocketNetwork::Socket_Server::Socket_Server(const std::string& ip, int port)
-    : server_socket(INVALID_SOCKET), is_running(false), is_initialized(false),
+    : server_socket(), is_running(false), is_initialized(false),
       client_count(0), total_connections(0), total_messages_received(0), total_messages_sent(0)
 {
     config.ip_address = ip;
@@ -73,7 +73,7 @@ bool SocketNetwork::Socket_Server::initialize()
         if (!bind_and_listen())
         {
             log_server_event("Failed to bind and listen on socket");
-            closesocket(server_socket);
+            server_socket.reset();
             cleanup_winsock();
             return false;
         }
@@ -145,11 +145,7 @@ void SocketNetwork::Socket_Server::stop()
     is_running = false;
 
     // Close server socket to interrupt accept()
-    if (server_socket != INVALID_SOCKET)
-    {
-        closesocket(server_socket);
-        server_socket = INVALID_SOCKET;
-    }
+    server_socket.reset();
 
     // Disconnect all clients
     disconnect_all_clients();
@@ -366,9 +362,9 @@ void SocketNetwork::Socket_Server::cleanup_winsock()
 
 bool SocketNetwork::Socket_Server::create_server_socket()
 {
-    server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    server_socket.reset(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
     
-    if (server_socket == INVALID_SOCKET)
+    if (!server_socket.is_valid())
     {
         log_server_event("Socket creation failed with error: " + 
                         Utils::Conversion::int_to_string(WSAGetLastError()));
@@ -377,7 +373,7 @@ bool SocketNetwork::Socket_Server::create_server_socket()
     
     if (!set_socket_options(server_socket))
     {
-        closesocket(server_socket);
+        server_socket.reset();
         return false;
     }
     

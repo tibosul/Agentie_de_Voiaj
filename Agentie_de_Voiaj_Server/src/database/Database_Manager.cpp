@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 
+using namespace Utils::Exceptions;
 
 // Constructor
 Database::Database_Manager::Database_Manager() 
@@ -140,8 +141,8 @@ bool Database::Database_Manager::connect()
     }
     else
     {
-        handle_sql_error(SQL_HANDLE_DBC, hdbc);
-        return false;
+        std::string error = get_sql_error(SQL_HANDLE_DBC, hdbc);
+        throw DatabaseException("Connection failed: " + error, WSAGetLastError());
     }
 }
 
@@ -223,7 +224,7 @@ Database::Query_Result Database::Database_Manager::execute_query(const std::stri
     if (!SQL_SUCCEEDED(ret))
     {
         std::string error = get_sql_error(SQL_HANDLE_STMT, hstmt);
-        return Query_Result(Result_Type::ERROR_EXECUTION, error);
+        throw DatabaseException("Query execution failed: " + error, ret);
     }
 
     // Check if this is a SELECT query

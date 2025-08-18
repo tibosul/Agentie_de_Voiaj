@@ -1,4 +1,4 @@
-#include "network/Client_Handler.h"
+﻿#include "network/Client_Handler.h"
 #include "network/Protocol_Handler.h"
 #include "network/Socket_Server.h"
 #include <iostream>
@@ -25,10 +25,6 @@ SocketNetwork::Client_Handler::Client_Handler(SOCKET socket, const SocketNetwork
 SocketNetwork::Client_Handler::~Client_Handler()
 {
     stop_handling();
-    if (client_socket != INVALID_SOCKET)
-    {
-        closesocket(client_socket);
-    }
 }
 
 void SocketNetwork::Client_Handler::start_handling()
@@ -51,11 +47,10 @@ void SocketNetwork::Client_Handler::stop_handling()
     
     is_running = false;
     
-    if (client_socket != INVALID_SOCKET)
+    if (client_socket.is_valid())
     {
         shutdown(client_socket, SD_BOTH);
-        closesocket(client_socket);
-        client_socket = INVALID_SOCKET;
+        client_socket.reset(); // Închide și resetează la INVALID_SOCKET
     }
     
     if (handler_thread.joinable())
@@ -241,7 +236,7 @@ void SocketNetwork::Client_Handler::handle_disconnection()
 
 bool SocketNetwork::Client_Handler::is_socket_valid() const
 {
-    return client_socket != INVALID_SOCKET && is_running.load();
+    return client_socket.is_valid() && is_running.load();
 }
 
 void SocketNetwork::Client_Handler::send_error_response(const std::string& error_message)
