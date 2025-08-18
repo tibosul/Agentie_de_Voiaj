@@ -545,7 +545,7 @@ namespace Utils
 			std::ofstream file(filename, std::ios::app);
 			if (file.is_open())
 			{
-				file << "[" << DateTime::get_current_date_time() << "] " << message << std::endl;
+				file << message << std::endl;
 				file.close();
 			}
 			else
