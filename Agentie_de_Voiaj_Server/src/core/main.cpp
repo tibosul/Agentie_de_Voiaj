@@ -80,23 +80,29 @@ int main()
         
         if (!connected)
         {
-            std::cerr << "\nWARNING: Cannot connect to any SQL Server instance!" << std::endl;
-            std::cerr << "\nTried servers:" << std::endl;
-            for (const auto& server : server_options)
-            {
-                std::cerr << "  - " << server << std::endl;
-            }
-            std::cerr << "\nServer will start WITHOUT database functionality." << std::endl;
-            std::cerr << "Database operations will return mock/error responses." << std::endl;
-            std::cerr << "\nTo enable database:" << std::endl;
-            std::cerr << "1. Install SQL Server LocalDB: https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/sql-server-express-localdb" << std::endl;
-            std::cerr << "2. Or install SQL Server Express" << std::endl;
-            std::cerr << "3. Restart the server" << std::endl;
-            std::cout << "\nPress Enter to continue without database or Ctrl+C to exit..." << std::endl;
+            Utils::Logger::error("Cannot connect to any SQL Server instance!");
+            Utils::Logger::info("Tried servers: localhost, localhost\\SQLEXPRESS, .\\SQLEXPRESS, (LocalDB)\\MSSQLLocalDB, .");
+            
+            std::cerr << "\n" << std::string(60, '=') << std::endl;
+            std::cerr << "🔶 DATABASE CONNECTION FAILED - STARTING IN DEMO MODE 🔶" << std::endl;
+            std::cerr << std::string(60, '=') << std::endl;
+            std::cerr << "\n📋 DEMO MODE FEATURES:" << std::endl;
+            std::cerr << "  ✅ User authentication (demo/demo123, admin/admin123, test/test123)" << std::endl;
+            std::cerr << "  ✅ User registration (mock responses)" << std::endl;
+            std::cerr << "  ✅ View destinations (Paris, Rome)" << std::endl;
+            std::cerr << "  ✅ View offers (Paris Weekend, Rome Adventure)" << std::endl;
+            std::cerr << "  ✅ All server functionality for testing" << std::endl;
+            std::cerr << "\n📢 To enable REAL database:" << std::endl;
+            std::cerr << "  1. Install SQL Server LocalDB or Express" << std::endl;
+            std::cerr << "  2. Create 'Agentie_de_Voiaj' database" << std::endl;
+            std::cerr << "  3. Restart the server" << std::endl;
+            std::cerr << "\n" << std::string(60, '-') << std::endl;
+            std::cout << "Press Enter to continue in DEMO MODE or Ctrl+C to exit..." << std::endl;
             std::cin.get();
             
             // Create a dummy database manager that will handle errors gracefully
             db_manager = std::make_shared<Database_Manager>("dummy", "dummy", "", "");
+            Utils::Logger::warning("Server starting in DEMO MODE with mock data");
         }
         if (connected)
         {
@@ -149,9 +155,18 @@ int main()
         }
         
         Utils::Logger::info("=== SERVER STARTED SUCCESSFULLY! ===");
+        if (db_manager && db_manager->is_running_in_demo_mode())
+        {
+            Utils::Logger::warning("⚠️  RUNNING IN DEMO MODE - Using mock data ⚠️");
+        }
         Utils::Logger::info("Server is running. Press Ctrl+C to shutdown.");
         std::cout << "\n" << std::string(50, '=') << std::endl;
-        std::cout << "SERVER RUNNING - Check logs/server_" << Utils::DateTime::get_current_date() << ".log for detailed logs" << std::endl;
+        std::cout << "SERVER RUNNING";
+        if (db_manager && db_manager->is_running_in_demo_mode())
+        {
+            std::cout << " (DEMO MODE)";
+        }
+        std::cout << " - Check logs/server_" << Utils::DateTime::get_current_date() << ".log for detailed logs" << std::endl;
         std::cout << std::string(50, '=') << std::endl;
         
         // Main server loop - keep running until interrupted

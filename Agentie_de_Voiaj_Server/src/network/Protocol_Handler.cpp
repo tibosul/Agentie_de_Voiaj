@@ -337,12 +337,18 @@ SocketNetwork::Response SocketNetwork::Protocol_Handler::handle_get_destinations
     
     try 
     {
-        auto result = db_manager->get_all_destinations();
+        // Check if we're in demo mode and use mock data
+        auto result = db_manager->is_running_in_demo_mode() ? 
+            db_manager->create_mock_response("get_destinations") : 
+            db_manager->get_all_destinations();
         
         if (result.is_success())
         {
             std::string destinations_json = vector_to_json(result.data);
-            return Response(true, Config::SuccessMessages::DATA_RETRIEVED, destinations_json);
+            std::string message = db_manager->is_running_in_demo_mode() ? 
+                "Demo destinations retrieved successfully" : 
+                Config::SuccessMessages::DATA_RETRIEVED;
+            return Response(true, message, destinations_json);
         }
         else 
         {
@@ -364,12 +370,18 @@ SocketNetwork::Response SocketNetwork::Protocol_Handler::handle_get_offers(const
     
     try 
     {
-        auto result = db_manager->get_available_offers();
+        // Check if we're in demo mode and use mock data
+        auto result = db_manager->is_running_in_demo_mode() ? 
+            db_manager->create_mock_response("get_offers") : 
+            db_manager->get_available_offers();
         
         if (result.is_success())
         {
             std::string offers_json = vector_to_json(result.data);
-            return Response(true, Config::SuccessMessages::DATA_RETRIEVED, offers_json);
+            std::string message = db_manager->is_running_in_demo_mode() ? 
+                "Demo offers retrieved successfully" : 
+                Config::SuccessMessages::DATA_RETRIEVED;
+            return Response(true, message, offers_json);
         }
         else 
         {

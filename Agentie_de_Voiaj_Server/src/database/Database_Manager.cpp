@@ -6,7 +6,7 @@
 
 // Constructor
 Database::Database_Manager::Database_Manager() 
-    : henv(SQL_NULL_HENV), hdbc(SQL_NULL_HDBC), hstmt(SQL_NULL_HSTMT), is_connected(false)
+    : henv(SQL_NULL_HENV), hdbc(SQL_NULL_HDBC), hstmt(SQL_NULL_HSTMT), is_connected(false), is_demo_mode(false)
 {
     initialize_handles();
 }
@@ -14,8 +14,16 @@ Database::Database_Manager::Database_Manager()
 Database::Database_Manager::Database_Manager(const std::string& server, const std::string& database, 
     const std::string& username, const std::string& password)
     : server(server), database(database), username(username), password(password),
-    henv(SQL_NULL_HENV), hdbc(SQL_NULL_HDBC), hstmt(SQL_NULL_HSTMT), is_connected(false)
+    henv(SQL_NULL_HENV), hdbc(SQL_NULL_HDBC), hstmt(SQL_NULL_HSTMT), is_connected(false), is_demo_mode(false)
 {
+    // Check if this is a dummy instance (demo mode)
+    if (server == "dummy" && database == "dummy")
+    {
+        is_demo_mode = true;
+        Utils::Logger::warning("Database_Manager initialized in DEMO MODE - using mock data");
+        return;
+    }
+    
     initialize_handles();
     connection_string = build_connection_string();
 }
@@ -428,6 +436,40 @@ Database::Query_Result Database::Database_Manager::execute_transaction(const std
 // User authentication and management
 Database::Query_Result Database::Database_Manager::authenticate_user(const std::string& username, const std::string& password)
 {
+    // Demo mode - return mock authentication
+    if (is_demo_mode)
+    {
+        if (!Utils::Validation::is_valid_username(username) || Utils::String::is_empty(password))
+        {
+            return Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid username or password format");
+        }
+        
+        // Mock successful authentication for demo users
+        if ((username == "admin" && password == "admin123") || 
+            (username == "demo" && password == "demo123") ||
+            (username == "test" && password == "test123"))
+        {
+            Query_Result result(Result_Type::SUCCESS, "Demo authentication successful");
+            std::map<std::string, std::string> user_data;
+            user_data["ID"] = (username == "admin") ? "1" : "2";
+            user_data["Username"] = username;
+            user_data["Email"] = username + "@demo.com";
+            user_data["First_Name"] = "Demo";
+            user_data["Last_Name"] = "User";
+            user_data["Phone"] = "0700000000";
+            result.data.push_back(user_data);
+            
+            Utils::Logger::info("DEMO MODE: Authentication successful for demo user: " + username);
+            return result;
+        }
+        else
+        {
+            Utils::Logger::warning("DEMO MODE: Authentication failed for user: " + username);
+            return Query_Result(Result_Type::DB_ERROR_NO_DATA, "Authentication failed - invalid credentials");
+        }
+    }
+    
+    // Regular database authentication
     if (!Utils::Validation::is_valid_username(username) || Utils::String::is_empty(password))
     {
         return Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid username or password format");
@@ -441,7 +483,35 @@ Database::Query_Result Database::Database_Manager::authenticate_user(const std::
 
 Database::Query_Result Database::Database_Manager::register_user(const User_Data& user_data)
 {
-    // Validate user data
+    // Demo mode - return mock registration
+    if (is_demo_mode)
+    {
+        // Basic validation
+        if (!Utils::Validation::is_valid_username(user_data.username))
+        {
+            return Database::Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid username format");
+        }
+        if (!Utils::Validation::is_valid_email(user_data.email))
+        {
+            return Database::Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid email format");
+        }
+        if (!Utils::Validation::is_valid_password(user_data.password_hash))
+        {
+            return Database::Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid password format");
+        }
+        
+        // Mock successful registration (simulate username already exists for some cases)
+        if (user_data.username == "admin" || user_data.username == "test")
+        {
+            Utils::Logger::warning("DEMO MODE: Registration failed - username already exists: " + user_data.username);
+            return Query_Result(Result_Type::ERROR_CONSTRAINT, "Username already exists");
+        }
+        
+        Utils::Logger::info("DEMO MODE: Registration successful for new user: " + user_data.username);
+        return Query_Result(Result_Type::SUCCESS, "Demo user registration successful");
+    }
+    
+    // Regular database registration - validate user data
     if (!Utils::Validation::is_valid_username(user_data.username))
     {
         return Database::Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid username format");
@@ -1456,4 +1526,74 @@ std::string Database::Database_Manager::get_create_indexes_sql()
         IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Offers_Destination_Price')
             CREATE INDEX IX_Offers_Destination_Price ON Offers(Destination_ID, Price_per_Person);
     )";
+}
+
+// Demo mode utilities implementation
+void Database::Database_Manager::enable_demo_mode()
+{
+    is_demo_mode = true;
+    Utils::Logger::warning("Database_Manager switched to DEMO MODE");
+}
+
+bool Database::Database_Manager::is_running_in_demo_mode() const
+{
+    return is_demo_mode;
+}
+
+Database::Query_Result Database::Database_Manager::create_mock_response(const std::string& operation)
+{
+    Utils::Logger::info("DEMO MODE: Creating mock response for operation: " + operation);
+    
+    if (operation == "get_destinations")
+    {
+        Query_Result result(Result_Type::SUCCESS, "Demo destinations retrieved");
+        
+        // Mock destination 1
+        std::map<std::string, std::string> dest1;
+        dest1["Destination_ID"] = "1";
+        dest1["Name"] = "Paris";
+        dest1["Country"] = "France";
+        dest1["Description"] = "City of Light - Demo destination";
+        result.data.push_back(dest1);
+        
+        // Mock destination 2
+        std::map<std::string, std::string> dest2;
+        dest2["Destination_ID"] = "2";
+        dest2["Name"] = "Rome";
+        dest2["Country"] = "Italy";  
+        dest2["Description"] = "Eternal City - Demo destination";
+        result.data.push_back(dest2);
+        
+        return result;
+    }
+    else if (operation == "get_offers")
+    {
+        Query_Result result(Result_Type::SUCCESS, "Demo offers retrieved");
+        
+        // Mock offer 1
+        std::map<std::string, std::string> offer1;
+        offer1["Offer_ID"] = "1";
+        offer1["Name"] = "Paris Weekend";
+        offer1["Destination"] = "Paris";
+        offer1["Price_per_Person"] = "299.99";
+        offer1["Duration_Days"] = "3";
+        offer1["Available_Seats"] = "10";
+        result.data.push_back(offer1);
+        
+        // Mock offer 2  
+        std::map<std::string, std::string> offer2;
+        offer2["Offer_ID"] = "2";
+        offer2["Name"] = "Rome Adventure";
+        offer2["Destination"] = "Rome";
+        offer2["Price_per_Person"] = "449.99";
+        offer2["Duration_Days"] = "5";
+        offer2["Available_Seats"] = "8";
+        result.data.push_back(offer2);
+        
+        return result;
+    }
+    else
+    {
+        return Query_Result(Result_Type::SUCCESS, "Demo mode: Operation '" + operation + "' completed successfully");
+    }
 }

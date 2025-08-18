@@ -210,6 +210,7 @@ namespace Database
 		std::string connection_string;
 
 		bool is_connected;
+		bool is_demo_mode; // When true, returns mock data instead of real DB operations
 		std::mutex db_mutex;
 
 		static constexpr int MAX_RETRIES_ATTEMPTS = 3;
@@ -334,6 +335,11 @@ namespace Database
 		bool validate_connection_params();
 		std::string get_last_error();
 		void log_error(const std::string& operation, const std::string& error);
+		
+		// Demo mode utilities
+		void enable_demo_mode();
+		bool is_running_in_demo_mode() const;
+		Query_Result create_mock_response(const std::string& operation);
 
 		// Static utilities
 		static std::string hash_password(const std::string& password, const std::string& salt);
