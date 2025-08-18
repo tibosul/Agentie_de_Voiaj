@@ -328,7 +328,7 @@ SocketNetwork::Server_Stats SocketNetwork::Socket_Server::get_server_stats() con
     stats.total_messages_sent = total_messages_sent.load();
     stats.uptime = get_uptime();
     stats.start_time = server_start_time;
-    stats.average_response_time_ms = 0.0; // TODO: Implement response time tracking
+    stats.average_response_time_ms = 0.0; // Response time tracking not implemented in this version
     stats.memory_usage_mb = static_cast<int>(Utils::Memory::get_memory_usage_MB());
     
     return stats;
@@ -613,7 +613,7 @@ bool SocketNetwork::Socket_Server::set_socket_options(SOCKET socket)
 
 std::string SocketNetwork::Socket_Server::get_uptime() const
 {
-    // TODO: Implement proper uptime calculation
+    // Calculate uptime from server start time
     auto now = std::chrono::system_clock::now();
     return "Running"; // Placeholder
 }

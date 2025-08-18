@@ -1,0 +1,52 @@
+# Visual Studio build files
+x64/
+Debug/
+Release/
+*.vcxproj.user
+*.suo
+*.user
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.tlb
+*.tlh
+*.bak
+*.cache
+*.ilk
+*.log
+*.lib
+*.sbr
+*.sdf
+*.opensdf
+*.unsuccessfulbuild
+*.idb
+*.pdb
+*.exe
+*.dll
+*.obj
+
+# Build directories
+[Dd]ebug*/
+[Rr]elease*/
+
+# Logs
+logs/*.log
+
+# Temporary files
+*.tmp
+*~
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vs/
+.vscode/
+
+# vcpkg files
+vcpkg_installed/
+
+# Project specific build artifacts
+Agentie_*.tlog/

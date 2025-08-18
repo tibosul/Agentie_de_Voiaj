@@ -39,7 +39,7 @@ namespace Config
 		const std::string APP_NAME = "Agentie de Voiaj Server";
 		const std::string VERSION = "1.0.0";
 		constexpr bool DEBUG_MODE = true; // Enable debug mode for logging
-		constexpr bool LOG_SQL_QUERIES = true; // Log SQL queries
+		constexpr bool LOG_SQL_QUERIES = false; // Log SQL queries (disabled for performance)
 		constexpr bool LOG_CLIENT_REQUESTS = true; // Log client requests
 
 		// File paths
