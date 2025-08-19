@@ -1,5 +1,7 @@
 #include "ui/Main_Window.h"
 #include "network/Api_Client.h"
+#include "models/User_Model.h"
+#include "models/Destination_Model.h"
 
 Main_Window::Main_Window(QWidget *parent)
     : QMainWindow(parent)
@@ -35,6 +37,29 @@ Main_Window::Main_Window(QWidget *parent)
         // Get destinations after 3 seconds
         api.get_destinations();
     });
+
+	// Load user model
+	User_Model* user_model = new User_Model(this);
+    connect(user_model, &User_Model::login_succes, []() {
+            qDebug() << "User logged in successfully";
+		});
+
+	// Load destination model
+	Destination_Model* destination_model = new Destination_Model(this);
+    connect(destination_model, &Destination_Model::destinations_loaded, [destination_model]()
+        {
+            qDebug() << "Destinations loaded:" << destination_model->get_destination_count();
+            for (int i = 0; i < destination_model->get_destination_count(); ++i)
+            {
+                auto dest = destination_model->get_destination(i);
+                qDebug() << "Destination" << i << ":" << dest.name << "in" << dest.country;
+            }
+        });
+
+    QTimer::singleShot(2000, [destination_model]() {
+        // Refresh destinations after 5 seconds
+        destination_model->refresh_destinations();
+		});
 }
 
 Main_Window::~Main_Window()
