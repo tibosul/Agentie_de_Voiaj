@@ -154,7 +154,7 @@ void User_Model::on_api_login_success(const QJsonObject& user_data)
     
     save_login_state();
     
-    emit login_succes();
+    emit login_success();
     emit authentication_status_changed(true);
     emit user_data_changed();
 }
@@ -172,7 +172,7 @@ void User_Model::on_api_login_failed(const QString& error_message)
 void User_Model::on_api_register_success()
 {
     qDebug() << "User_Model: Registration successful";
-    emit register_succes();
+    emit register_success();
 }
 
 void User_Model::on_api_register_failed(const QString& error_message)

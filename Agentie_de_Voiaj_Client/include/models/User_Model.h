@@ -3,6 +3,8 @@
 #include <QString>
 #include <QDateTime>
 #include <QSettings>
+#include <QJsonObject>
+#include <memory>
 
 class User_Model : public QObject
 {
@@ -56,9 +58,9 @@ public:
     void clear_saved_state();
 
 signals:
-    void login_succes();
+    void login_success();
     void login_failed(const QString& error_message);
-    void register_succes();
+    void register_success();
     void register_failed(const QString& error_message);
     void logged_out();
 

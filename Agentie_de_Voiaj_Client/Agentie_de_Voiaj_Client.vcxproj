@@ -42,7 +42,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
     <QtInstall>Qt 6.9.1 MSVC2022 64bit</QtInstall>
-    <QtModules>core;gui;widgets</QtModules>
+    <QtModules>core;gui;network;widgets</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
@@ -97,13 +97,17 @@
     <ClCompile Include="src\models\Destination_Model.cpp" />
     <ClCompile Include="src\models\User_Model.cpp" />
     <ClCompile Include="src\network\Api_Client.cpp" />
+    <ClCompile Include="src\ui\Destination_Card.cpp" />
     <ClCompile Include="src\ui\Login_Window.cpp" />
+    <ClCompile Include="src\ui\Offer_Card.cpp" />
     <ClCompile Include="src\utils\Logger.cpp" />
     <ClCompile Include="src\utils\Style_Manager.cpp" />
     <QtMoc Include="include\network\Api_Client.h" />
     <QtMoc Include="include\models\User_Model.h" />
     <QtMoc Include="include\models\Destination_Model.h" />
     <QtMoc Include="include\ui\Login_Window.h" />
+    <QtMoc Include="include\ui\Destination_Card.h" />
+    <QtMoc Include="include\ui\Offer_Card.h" />
     <ClInclude Include="include\utils\Logger.h" />
     <ClInclude Include="include\utils\Style_Manager.h" />
     <QtMoc Include="include\core\Application.h" />

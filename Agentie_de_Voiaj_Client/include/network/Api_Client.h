@@ -38,6 +38,7 @@ public:
     };
 
     static Api_Client& instance();
+    static void shutdown();
 
     void set_server_url(const QString& host, int port);
     void set_auth_token(const QString& token);
@@ -104,14 +105,18 @@ private:
     void handle_response(const QJsonObject& response);
     
     Api_Response parse_json_response(const QJsonObject& json_response) const;
-    void process_authentification_response(const Api_Response& response);
+    void process_authentication_response(const Api_Response& response);
     void process_data_response(Request_Type type, const Api_Response& response);
 
     void handle_socket_error(QAbstractSocket::SocketError error);
     void emit_error(const QString& error_message);
 
     QString request_type_to_string(Request_Type type) const;
-    bool is_authentification_required(Request_Type type) const;
+    bool is_authentication_required(Request_Type type) const;
+
+    // Constants
+    static constexpr int CONNECTION_TIMEOUT_MS = 5000;
+    static constexpr int REQUEST_TIMEOUT_MS = 10000;
 
     static Api_Client* s_instance;
 

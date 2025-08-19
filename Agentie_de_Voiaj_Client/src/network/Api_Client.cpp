@@ -52,6 +52,15 @@ Api_Client& Api_Client::instance()
     return *s_instance;
 }
 
+void Api_Client::shutdown()
+{
+    if (s_instance)
+    {
+        delete s_instance;
+        s_instance = nullptr;
+    }
+}
+
 void Api_Client::set_server_url(const QString& host, int port)
 {
     QMutexLocker locker(&m_mutex);
@@ -85,8 +94,25 @@ void Api_Client::connect_to_server()
         return; // Already connecting
     }
     
+    // Validate server parameters
+    if (m_server_host.isEmpty() || m_server_port <= 0 || m_server_port > 65535)
+    {
+        QString error = QString("Invalid server parameters: %1:%2").arg(m_server_host).arg(m_server_port);
+        qWarning() << error;
+        emit network_error(error);
+        return;
+    }
+    
     qDebug() << "Connecting to server:" << m_server_host << ":" << m_server_port;
     m_socket->connectToHost(m_server_host, m_server_port);
+    
+    // Set connection timeout
+    if (!m_socket->waitForConnected(CONNECTION_TIMEOUT_MS))
+    {
+        QString error = QString("Connection timeout: %1").arg(m_socket->errorString());
+        qWarning() << error;
+        emit network_error(error);
+    }
 }
 
 void Api_Client::disconnect_from_server()
@@ -111,9 +137,43 @@ void Api_Client::test_connection()
 
 void Api_Client::login(const QString& username, const QString& password)
 {
+    // Validate input parameters
+    if (username.trimmed().isEmpty())
+    {
+        QString error = "Username cannot be empty";
+        qWarning() << error;
+        emit login_failed(error);
+        return;
+    }
+    
+    if (password.isEmpty())
+    {
+        QString error = "Password cannot be empty";
+        qWarning() << error;
+        emit login_failed(error);
+        return;
+    }
+    
+    // Validate username length and characters
+    if (username.length() > 50)
+    {
+        QString error = "Username is too long (maximum 50 characters)";
+        qWarning() << error;
+        emit login_failed(error);
+        return;
+    }
+    
+    if (password.length() > 100)
+    {
+        QString error = "Password is too long (maximum 100 characters)";
+        qWarning() << error;
+        emit login_failed(error);
+        return;
+    }
+    
     QJsonObject loginData;
     loginData["type"] = "AUTH";
-    loginData["username"] = username;
+    loginData["username"] = username.trimmed();
     loginData["password"] = password;
     
     send_request(Request_Type::Login, loginData);
@@ -121,8 +181,81 @@ void Api_Client::login(const QString& username, const QString& password)
 
 void Api_Client::register_user(const QJsonObject& user_data)
 {
+    // Validate required fields
+    if (!user_data.contains("username") || user_data["username"].toString().trimmed().isEmpty())
+    {
+        QString error = "Username is required for registration";
+        qWarning() << error;
+        emit register_failed(error);
+        return;
+    }
+    
+    if (!user_data.contains("password") || user_data["password"].toString().isEmpty())
+    {
+        QString error = "Password is required for registration";
+        qWarning() << error;
+        emit register_failed(error);
+        return;
+    }
+    
+    if (!user_data.contains("email") || user_data["email"].toString().trimmed().isEmpty())
+    {
+        QString error = "Email is required for registration";
+        qWarning() << error;
+        emit register_failed(error);
+        return;
+    }
+    
+    // Validate field lengths
+    QString username = user_data["username"].toString().trimmed();
+    QString password = user_data["password"].toString();
+    QString email = user_data["email"].toString().trimmed();
+    
+    if (username.length() > 50)
+    {
+        QString error = "Username is too long (maximum 50 characters)";
+        qWarning() << error;
+        emit register_failed(error);
+        return;
+    }
+    
+    if (password.length() < 6)
+    {
+        QString error = "Password must be at least 6 characters long";
+        qWarning() << error;
+        emit register_failed(error);
+        return;
+    }
+    
+    if (password.length() > 100)
+    {
+        QString error = "Password is too long (maximum 100 characters)";
+        qWarning() << error;
+        emit register_failed(error);
+        return;
+    }
+    
+    if (email.length() > 100)
+    {
+        QString error = "Email is too long (maximum 100 characters)";
+        qWarning() << error;
+        emit register_failed(error);
+        return;
+    }
+    
+    // Basic email format validation
+    if (!email.contains("@") || !email.contains(".") || email.indexOf("@") > email.lastIndexOf("."))
+    {
+        QString error = "Invalid email format";
+        qWarning() << error;
+        emit register_failed(error);
+        return;
+    }
+    
     QJsonObject registerData = user_data;
     registerData["type"] = "REGISTER";
+    registerData["username"] = username;
+    registerData["email"] = email;
     
     send_request(Request_Type::Register, registerData);
 }
@@ -188,6 +321,32 @@ void Api_Client::get_user_reservations()
 
 void Api_Client::book_offer(int offer_id, int person_count, const QJsonObject& additional_info)
 {
+    // Validate input parameters
+    if (offer_id <= 0)
+    {
+        QString error = "Invalid offer ID";
+        qWarning() << error;
+        emit booking_failed(error);
+        return;
+    }
+    
+    if (person_count <= 0 || person_count > 20)
+    {
+        QString error = "Person count must be between 1 and 20";
+        qWarning() << error;
+        emit booking_failed(error);
+        return;
+    }
+    
+    // Check if user is authenticated
+    if (!is_connected())
+    {
+        QString error = "Not connected to server";
+        qWarning() << error;
+        emit booking_failed(error);
+        return;
+    }
+    
     QJsonObject requestData = additional_info;
     requestData["type"] = "BOOK_OFFER";
     requestData["offer_id"] = offer_id;
@@ -198,6 +357,24 @@ void Api_Client::book_offer(int offer_id, int person_count, const QJsonObject& a
 
 void Api_Client::cancel_reservation(int reservation_id)
 {
+    // Validate input parameters
+    if (reservation_id <= 0)
+    {
+        QString error = "Invalid reservation ID";
+        qWarning() << error;
+        emit cancellation_failed(error);
+        return;
+    }
+    
+    // Check if user is authenticated
+    if (!is_connected())
+    {
+        QString error = "Not connected to server";
+        qWarning() << error;
+        emit cancellation_failed(error);
+        return;
+    }
+    
     QJsonObject requestData;
     requestData["type"] = "CANCEL_RESERVATION";
     requestData["reservation_id"] = reservation_id;
@@ -249,8 +426,15 @@ void Api_Client::send_json_message(const QJsonObject& message)
         return;
     }
     
+    // Validate message size
     QJsonDocument doc(message);
     QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
+    
+    if (jsonData.size() > MAX_BUFFER_SIZE)
+    {
+        emit_error("Message too large to send");
+        return;
+    }
     
     // Add carriage return and newline delimiter to match server expectation
     jsonData.append("\r\n");
@@ -258,16 +442,26 @@ void Api_Client::send_json_message(const QJsonObject& message)
     qDebug() << "Sending JSON message:" << jsonData;
     
     qint64 bytesWritten = m_socket->write(jsonData);
-    if (bytesWritten != jsonData.size())
+    if (bytesWritten == -1)
     {
-        emit_error("Failed to send complete message");
+        emit_error(QString("Failed to write to socket: %1").arg(m_socket->errorString()));
         return;
     }
     
-    m_socket->flush();
+    if (bytesWritten != jsonData.size())
+    {
+        emit_error(QString("Incomplete message sent: %1 of %2 bytes").arg(bytesWritten).arg(jsonData.size()));
+        return;
+    }
     
-    // Start timeout timer
-    m_timeout_timer->start(m_timeout_ms);
+    if (!m_socket->flush())
+    {
+        qWarning() << "Socket flush failed, but data was written";
+    }
+    
+    // Start timeout timer with configured timeout
+    int timeout = (m_timeout_ms > 0) ? m_timeout_ms : REQUEST_TIMEOUT_MS;
+    m_timeout_timer->start(timeout);
 }
 
 void Api_Client::on_socket_connected()
@@ -399,7 +593,7 @@ void Api_Client::handle_response(const QJsonObject& response)
     {
         if (m_current_request_type == Request_Type::Login || m_current_request_type == Request_Type::Register)
         {
-            process_authentification_response(api_response);
+            process_authentication_response(api_response);
         }
         else
         {
@@ -427,7 +621,7 @@ Api_Client::Api_Response Api_Client::parse_json_response(const QJsonObject& json
     return response;
 }
 
-void Api_Client::process_authentification_response(const Api_Response& response)
+void Api_Client::process_authentication_response(const Api_Response& response)
 {
     if (response.success)
     {
@@ -586,7 +780,7 @@ QString Api_Client::request_type_to_string(Request_Type type) const
     }
 }
 
-bool Api_Client::is_authentification_required(Request_Type type) const
+bool Api_Client::is_authentication_required(Request_Type type) const
 {
     switch (type)
     {

@@ -41,7 +41,7 @@ private slots:
 
     void on_user_logged_in();
     void on_user_logged_out();
-    void on_authentification_status_changed(bool is_authenticated);
+    void on_authentication_status_changed(bool is_authenticated);
 
     void on_destinations_loaded();
 
@@ -57,7 +57,7 @@ private:
     void create_reservations_tab();
     void create_profile_tab();
 
-    void update_ui_for_authentification_state();
+    void update_ui_for_authentication_state();
     void show_welcome_message();
     void show_login_prompt();
 

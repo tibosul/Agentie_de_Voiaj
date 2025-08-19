@@ -221,9 +221,9 @@ void Login_Window::setup_connections()
     connect(m_register_confirm_password, &QLineEdit::returnPressed, this, &Login_Window::on_register_clicked);
     
     // Model connections
-    connect(m_user_model.get(), &User_Model::login_succes, this, &Login_Window::on_login_success);
+    connect(m_user_model.get(), &User_Model::login_success, this, &Login_Window::on_login_success);
     connect(m_user_model.get(), &User_Model::login_failed, this, &Login_Window::on_login_failed);
-    connect(m_user_model.get(), &User_Model::register_succes, this, &Login_Window::on_register_success);
+    connect(m_user_model.get(), &User_Model::register_success, this, &Login_Window::on_register_success);
     connect(m_user_model.get(), &User_Model::register_failed, this, &Login_Window::on_register_failed);
 }
 

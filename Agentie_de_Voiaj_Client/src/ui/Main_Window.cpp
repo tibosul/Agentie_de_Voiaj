@@ -495,8 +495,8 @@ void Main_Window::setup_connections()
     
     // User model connections
     connect(m_user_model.get(), &User_Model::authentication_status_changed,
-            this, &Main_Window::on_authentification_status_changed);
-    connect(m_user_model.get(), &User_Model::login_succes,
+            this, &Main_Window::on_authentication_status_changed);
+    connect(m_user_model.get(), &User_Model::login_success,
             this, &Main_Window::on_user_logged_in);
     connect(m_user_model.get(), &User_Model::logged_out,
             this, &Main_Window::on_user_logged_out);
@@ -570,10 +570,10 @@ void Main_Window::on_user_logged_out()
     show_login_prompt();
 }
 
-void Main_Window::on_authentification_status_changed(bool is_authenticated)
+void Main_Window::on_authentication_status_changed(bool is_authenticated)
 {
     m_is_authenticated = is_authenticated;
-    update_ui_for_authentification_state();
+    update_ui_for_authentication_state();
 }
 
 void Main_Window::on_destinations_loaded()
@@ -581,7 +581,7 @@ void Main_Window::on_destinations_loaded()
     m_status_bar->showMessage("Destinații încărcate cu succes", 3000);
 }
 
-void Main_Window::update_ui_for_authentification_state()
+void Main_Window::update_ui_for_authentication_state()
 {
     // Update menu actions
     m_login_action->setEnabled(!m_is_authenticated);
