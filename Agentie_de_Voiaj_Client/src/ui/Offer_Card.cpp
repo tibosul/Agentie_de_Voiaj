@@ -1,5 +1,6 @@
 #include "ui/Offer_Card.h"
 #include "config.h"
+#include "models/Offer_Data.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

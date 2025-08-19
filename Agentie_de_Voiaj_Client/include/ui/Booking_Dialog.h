@@ -14,6 +14,7 @@
 #include <QTableWidget>
 #include <QComboBox>
 #include <memory>
+#include "models/Offer_Data.h"
 
 struct Booking_Data
 {
@@ -43,8 +44,8 @@ class Booking_Dialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit Booking_Dialog(QWidget* parent = nullptr);
-    explicit Booking_Dialog(const Offer_Data& offer, QWidget* parent = nullptr);
+    Booking_Dialog(QWidget* parent = nullptr);
+    Booking_Dialog(const Offer_Data& offer, QWidget* parent = nullptr);
     ~Booking_Dialog();
 
     static bool show_booking_dialog(const Offer_Data& offer, QWidget* parent = nullptr);

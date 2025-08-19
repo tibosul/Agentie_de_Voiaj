@@ -110,6 +110,7 @@
     <QtMoc Include="include\ui\Destination_Card.h" />
     <QtMoc Include="include\ui\Offer_Card.h" />
     <QtMoc Include="include\ui\Booking_Dialog.h" />
+    <ClInclude Include="include\models\Offer_Data.h" />
     <ClInclude Include="include\utils\Logger.h" />
     <ClInclude Include="include\utils\Style_Manager.h" />
     <QtMoc Include="include\core\Application.h" />

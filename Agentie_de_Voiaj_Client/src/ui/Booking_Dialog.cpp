@@ -1,6 +1,7 @@
 #include "ui/Booking_Dialog.h"
 #include "ui/Offer_Card.h"
 #include "models/User_Model.h"
+#include "models/Offer_Data.h"
 #include "config.h"
 
 #include <QVBoxLayout>
@@ -259,8 +260,8 @@ void Booking_Dialog::setup_connections()
     connect(m_cancel_button, &QPushButton::clicked, this, &Booking_Dialog::on_cancel_booking);
     
     // Model connections
-    connect(m_user_model.get(), &User_Model::login_success, 
-            this, &Booking_Dialog::on_booking_success);
+    // connect(m_user_model.get(), &User_Model::login_success, 
+    //         this, &Booking_Dialog::on_booking_success);
     // Note: In real implementation, connect to booking-specific signals
 }
 
