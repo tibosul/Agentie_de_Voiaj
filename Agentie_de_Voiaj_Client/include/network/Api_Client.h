@@ -1,12 +1,11 @@
 #pragma once
 #include <QObject>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
+#include <QTcpSocket>
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QTimer>
-#include <QSslError>
+#include <QMutex>
 #include <memory>
 
 class Api_Client : public QObject
@@ -87,24 +86,27 @@ signals:
     void request_completed(Request_Type type, const Api_Response& response);
 
 private slots:
-    void on_network_reply_finished();
+    void on_socket_connected();
+    void on_socket_disconnected();
+    void on_socket_ready_read();
+    void on_socket_error(QAbstractSocket::SocketError error);
     void on_request_timeout();
-    void on_ssl_errors(QNetworkReply* reply, const QList<QSslError>& errors);
 
 private:
     explicit Api_Client(QObject* parent = nullptr);
     ~Api_Client();
 
-    QNetworkRequest create_request(const QString& endpoint) const;
-    void send_request(Request_Type type, const QString& endpoint,
-                      const QJsonObject& data = {}, const QString& method = "GET");
-    void handle_response(Request_Type type, QNetworkReply* reply);
+    void connect_to_server();
+    void disconnect_from_server();
+    void send_json_message(const QJsonObject& message);
+    void send_request(Request_Type type, const QJsonObject& data);
+    void handle_response(const QJsonObject& response);
     
-    Api_Response parse_response(QNetworkReply* reply) const;
+    Api_Response parse_json_response(const QJsonObject& json_response) const;
     void process_authentification_response(const Api_Response& response);
     void process_data_response(Request_Type type, const Api_Response& response);
 
-    void handle_network_error(QNetworkReply::NetworkError error, const QString& error_message);
+    void handle_socket_error(QAbstractSocket::SocketError error);
     void emit_error(const QString& error_message);
 
     QString request_type_to_string(Request_Type type) const;
@@ -112,19 +114,19 @@ private:
 
     static Api_Client* s_instance;
 
-    std::unique_ptr<QNetworkAccessManager> m_network_manager;
+    std::unique_ptr<QTcpSocket> m_socket;
     std::unique_ptr<QTimer> m_timeout_timer;
+    mutable QMutex m_mutex;
 
     QString m_server_host;
     int m_server_port;
-    QString m_server_url;
     QString m_auth_token;
     int m_timeout_ms;
 
     bool m_is_connected;
     QString m_last_error;
-    QNetworkReply* m_current_reply;
     Request_Type m_current_request_type;
+    QByteArray m_receive_buffer;
 
     static constexpr int DEFAULT_TIMEOUT_MS = 30000;
     static constexpr int DEFAULT_PORT = 8080;

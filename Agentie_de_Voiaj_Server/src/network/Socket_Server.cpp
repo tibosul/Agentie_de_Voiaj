@@ -479,6 +479,7 @@ void SocketNetwork::Socket_Server::handle_new_client(SOCKET client_socket, const
         if (!set_socket_options(client_socket))
         {
             closesocket(client_socket);
+            log_server_event("Failed to set socket options for new client");
             return;
         }
         
@@ -496,11 +497,30 @@ void SocketNetwork::Socket_Server::handle_new_client(SOCKET client_socket, const
         
         if (!protocol_handler)
         {
-            protocol_handler = std::make_unique<Protocol_Handler>(db_manager);
+            try 
+            {
+                protocol_handler = std::make_unique<Protocol_Handler>(db_manager);
+            }
+            catch (const std::exception& e)
+            {
+                log_server_event("Failed to create protocol handler: " + std::string(e.what()));
+                closesocket(client_socket);
+                return;
+            }
         }
         
-        auto client_handler = std::make_shared<Client_Handler>(
-            client_socket, client_info, db_manager, protocol_handler.get(), this);
+        std::shared_ptr<Client_Handler> client_handler;
+        try 
+        {
+            client_handler = std::make_shared<Client_Handler>(
+                client_socket, client_info, db_manager, protocol_handler.get(), this);
+        }
+        catch (const std::exception& e)
+        {
+            log_server_event("Failed to create client handler: " + std::string(e.what()));
+            closesocket(client_socket);
+            return;
+        }
         
         {
             std::lock_guard<std::mutex> lock(clients_mutex);
@@ -508,18 +528,36 @@ void SocketNetwork::Socket_Server::handle_new_client(SOCKET client_socket, const
             client_count++;
         }
         
-        client_handler->start_handling();
-        
-        log_client_event(client_info, "New client connected");
-        
-        if (on_client_connected)
+        try 
         {
-            on_client_connected(client_info);
+            client_handler->start_handling();
+            log_client_event(client_info, "New client connected successfully");
+            
+            if (on_client_connected)
+            {
+                on_client_connected(client_info);
+            }
+        }
+        catch (const std::exception& e)
+        {
+            // Remove client from active list if start_handling fails
+            {
+                std::lock_guard<std::mutex> lock(clients_mutex);
+                active_clients.erase(client_socket);
+                client_count--;
+            }
+            log_server_event("Failed to start client handling: " + std::string(e.what()));
+            closesocket(client_socket);
         }
     }
     catch (const std::exception& e)
     {
         log_server_event("Exception handling new client: " + std::string(e.what()));
+        closesocket(client_socket);
+    }
+    catch (...)
+    {
+        log_server_event("Unknown exception handling new client");
         closesocket(client_socket);
     }
 }

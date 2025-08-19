@@ -1,13 +1,9 @@
 #include "network/Api_Client.h"
 #include "config/config.h"
 
-#include <QNetworkRequest>
-#include <QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonArray>
-#include <QUrl>
-#include <QUrlQuery>
-#include <QSslError>
+#include <QMutexLocker>
 #include <QDebug>
 
 // Static instance
@@ -15,35 +11,33 @@ Api_Client* Api_Client::s_instance = nullptr;
 
 Api_Client::Api_Client(QObject* parent)
     : QObject(parent)
-    , m_network_manager(std::make_unique<QNetworkAccessManager>(this))
+    , m_socket(std::make_unique<QTcpSocket>(this))
     , m_timeout_timer(std::make_unique<QTimer>(this))
     , m_server_host(Config::Server::DEFAULT_HOST)
     , m_server_port(Config::Server::DEFAULT_PORT)
     , m_timeout_ms(DEFAULT_TIMEOUT_MS)
     , m_is_connected(false)
-    , m_current_reply(nullptr)
     , m_current_request_type(Request_Type::Login)
 {
-    // Setup server URL
-    m_server_url = QString("http://%1:%2").arg(m_server_host).arg(m_server_port);
-    
     // Setup timeout timer
     m_timeout_timer->setSingleShot(true);
     connect(m_timeout_timer.get(), &QTimer::timeout, 
             this, &Api_Client::on_request_timeout);
     
-    // Setup network manager signals
-    connect(m_network_manager.get(), &QNetworkAccessManager::finished,
-            this, &Api_Client::on_network_reply_finished);
+    // Setup socket signals
+    connect(m_socket.get(), &QTcpSocket::connected,
+            this, &Api_Client::on_socket_connected);
+    connect(m_socket.get(), &QTcpSocket::disconnected,
+            this, &Api_Client::on_socket_disconnected);
+    connect(m_socket.get(), &QTcpSocket::readyRead,
+            this, &Api_Client::on_socket_ready_read);
+    connect(m_socket.get(), QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::errorOccurred),
+            this, &Api_Client::on_socket_error);
 }
 
 Api_Client::~Api_Client()
 {
-    if (m_current_reply)
-    {
-        m_current_reply->abort();
-        m_current_reply->deleteLater();
-    }
+    disconnect_from_server();
     s_instance = nullptr;
 }
 
@@ -58,21 +52,51 @@ Api_Client& Api_Client::instance()
 
 void Api_Client::set_server_url(const QString& host, int port)
 {
+    QMutexLocker locker(&m_mutex);
     m_server_host = host;
     m_server_port = port;
-    m_server_url = QString("http://%1:%2").arg(host).arg(port);
     
-    qDebug() << "Api_Client server URL set to:" << m_server_url;
+    qDebug() << "Api_Client server set to:" << host << ":" << port;
 }
 
 void Api_Client::set_auth_token(const QString& token)
 {
+    QMutexLocker locker(&m_mutex);
     m_auth_token = token;
 }
 
 void Api_Client::set_timeout(int timeout_ms)
 {
+    QMutexLocker locker(&m_mutex);
     m_timeout_ms = timeout_ms;
+}
+
+void Api_Client::connect_to_server()
+{
+    if (m_socket->state() == QAbstractSocket::ConnectedState)
+    {
+        return; // Already connected
+    }
+    
+    if (m_socket->state() == QAbstractSocket::ConnectingState)
+    {
+        return; // Already connecting
+    }
+    
+    qDebug() << "Connecting to server:" << m_server_host << ":" << m_server_port;
+    m_socket->connectToHost(m_server_host, m_server_port);
+}
+
+void Api_Client::disconnect_from_server()
+{
+    if (m_socket->state() == QAbstractSocket::ConnectedState)
+    {
+        m_socket->disconnectFromHost();
+        if (m_socket->state() != QAbstractSocket::UnconnectedState)
+        {
+            m_socket->waitForDisconnected(3000);
+        }
+    }
 }
 
 void Api_Client::test_connection()
@@ -80,7 +104,7 @@ void Api_Client::test_connection()
     QJsonObject testData;
     testData["type"] = "KEEPALIVE";
     
-    send_request(Request_Type::Login, "", testData, "POST");
+    send_request(Request_Type::Login, testData);
 }
 
 void Api_Client::login(const QString& username, const QString& password)
@@ -90,7 +114,7 @@ void Api_Client::login(const QString& username, const QString& password)
     loginData["username"] = username;
     loginData["password"] = password;
     
-    send_request(Request_Type::Login, "", loginData, "POST");
+    send_request(Request_Type::Login, loginData);
 }
 
 void Api_Client::register_user(const QJsonObject& user_data)
@@ -98,13 +122,16 @@ void Api_Client::register_user(const QJsonObject& user_data)
     QJsonObject registerData = user_data;
     registerData["type"] = "REGISTER";
     
-    send_request(Request_Type::Register, "", registerData, "POST");
+    send_request(Request_Type::Register, registerData);
 }
 
 void Api_Client::logout()
 {
+    QMutexLocker locker(&m_mutex);
     m_auth_token.clear();
     m_is_connected = false;
+    disconnect_from_server();
+    
     emit logged_out();
     emit connection_status_changed(false);
 }
@@ -114,7 +141,7 @@ void Api_Client::get_destinations()
     QJsonObject requestData;
     requestData["type"] = "GET_DESTINATIONS";
     
-    send_request(Request_Type::Get_Destinations, "", requestData, "POST");
+    send_request(Request_Type::Get_Destinations, requestData);
 }
 
 void Api_Client::get_offers()
@@ -122,7 +149,7 @@ void Api_Client::get_offers()
     QJsonObject requestData;
     requestData["type"] = "GET_OFFERS";
     
-    send_request(Request_Type::Get_Offers, "", requestData, "POST");
+    send_request(Request_Type::Get_Offers, requestData);
 }
 
 void Api_Client::search_offers(const QJsonObject& search_params)
@@ -130,7 +157,7 @@ void Api_Client::search_offers(const QJsonObject& search_params)
     QJsonObject requestData = search_params;
     requestData["type"] = "SEARCH_OFFERS";
     
-    send_request(Request_Type::Search_Offers, "", requestData, "POST");
+    send_request(Request_Type::Search_Offers, requestData);
 }
 
 void Api_Client::get_user_info()
@@ -138,7 +165,7 @@ void Api_Client::get_user_info()
     QJsonObject requestData;
     requestData["type"] = "GET_USER_INFO";
     
-    send_request(Request_Type::Get_User_Info, "", requestData, "POST");
+    send_request(Request_Type::Get_User_Info, requestData);
 }
 
 void Api_Client::update_user_info(const QJsonObject& user_info)
@@ -146,7 +173,7 @@ void Api_Client::update_user_info(const QJsonObject& user_info)
     QJsonObject requestData = user_info;
     requestData["type"] = "UPDATE_USER_INFO";
     
-    send_request(Request_Type::Update_User_Info, "", requestData, "POST");
+    send_request(Request_Type::Update_User_Info, requestData);
 }
 
 void Api_Client::get_user_reservations()
@@ -154,7 +181,7 @@ void Api_Client::get_user_reservations()
     QJsonObject requestData;
     requestData["type"] = "GET_USER_RESERVATIONS";
     
-    send_request(Request_Type::Get_User_Reservations, "", requestData, "POST");
+    send_request(Request_Type::Get_User_Reservations, requestData);
 }
 
 void Api_Client::book_offer(int offer_id, int person_count, const QJsonObject& additional_info)
@@ -164,7 +191,7 @@ void Api_Client::book_offer(int offer_id, int person_count, const QJsonObject& a
     requestData["offer_id"] = offer_id;
     requestData["person_count"] = person_count;
     
-    send_request(Request_Type::Book_Offer, "", requestData, "POST");
+    send_request(Request_Type::Book_Offer, requestData);
 }
 
 void Api_Client::cancel_reservation(int reservation_id)
@@ -173,189 +200,191 @@ void Api_Client::cancel_reservation(int reservation_id)
     requestData["type"] = "CANCEL_RESERVATION";
     requestData["reservation_id"] = reservation_id;
     
-    send_request(Request_Type::Cancel_Reservation, "", requestData, "POST");
+    send_request(Request_Type::Cancel_Reservation, requestData);
 }
 
 bool Api_Client::is_connected() const
 {
-    return m_is_connected;
+    QMutexLocker locker(&m_mutex);
+    return m_is_connected && m_socket->state() == QAbstractSocket::ConnectedState;
 }
 
 QString Api_Client::get_server_url() const
 {
-    return m_server_url;
+    QMutexLocker locker(&m_mutex);
+    return QString("%1:%2").arg(m_server_host).arg(m_server_port);
 }
 
 QString Api_Client::get_last_error() const
 {
+    QMutexLocker locker(&m_mutex);
     return m_last_error;
 }
 
-QNetworkRequest Api_Client::create_request(const QString& endpoint) const
+void Api_Client::send_request(Request_Type type, const QJsonObject& data)
 {
-    QUrl url(m_server_url + endpoint);
-    QNetworkRequest request(url);
-    
-    // Set headers
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setHeader(QNetworkRequest::UserAgentHeader, 
-                     Config::Application::APP_NAME + " " + Config::Application::VERSION);
-    
-    // Set authentication if available
-    if (!m_auth_token.isEmpty())
-    {
-        request.setRawHeader("Authorization", QString("Bearer %1").arg(m_auth_token).toUtf8());
-    }
-    
-    return request;
-}
-
-void Api_Client::send_request(Request_Type type, const QString& endpoint, 
-                           const QJsonObject& data, const QString& method)
-{
-    // Cancel previous request if still running
-    if (m_current_reply)
-    {
-        m_current_reply->abort();
-        m_current_reply->deleteLater();
-        m_current_reply = nullptr;
-    }
-    
     m_current_request_type = type;
     
-    QNetworkRequest request = create_request(endpoint);
-    QByteArray jsonData = QJsonDocument(data).toJson(QJsonDocument::Compact);
-    
-    qDebug() << "Sending request:" << request_type_to_string(type);
-    qDebug() << "URL:" << request.url().toString();
-    qDebug() << "Data:" << jsonData;
-    
-    // Send request based on method
-    if (method.toUpper() == "POST")
+    if (!is_connected())
     {
-        m_current_reply = m_network_manager->post(request, jsonData);
-    }
-    else if (method.toUpper() == "PUT")
-    {
-        m_current_reply = m_network_manager->put(request, jsonData);
-    }
-    else if (method.toUpper() == "DELETE")
-    {
-        m_current_reply = m_network_manager->deleteResource(request);
-    }
-    else
-    {
-        m_current_reply = m_network_manager->get(request);
+        connect_to_server();
+        // The request will be sent after connection is established
+        // Store the request for later
+        return;
     }
     
-    // Connect SSL error signal for this specific reply
-    if (m_current_reply) {
-        connect(m_current_reply, &QNetworkReply::sslErrors,
-                [this](const QList<QSslError>& errors) {
-                    this->on_ssl_errors(m_current_reply, errors);
-                });
+    send_json_message(data);
+}
+
+void Api_Client::send_json_message(const QJsonObject& message)
+{
+    if (m_socket->state() != QAbstractSocket::ConnectedState)
+    {
+        emit_error("Not connected to server");
+        return;
     }
+    
+    QJsonDocument doc(message);
+    QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
+    
+    // Add carriage return and newline delimiter to match server expectation
+    jsonData.append("\r\n");
+    
+    qDebug() << "Sending JSON message:" << jsonData;
+    
+    qint64 bytesWritten = m_socket->write(jsonData);
+    if (bytesWritten != jsonData.size())
+    {
+        emit_error("Failed to send complete message");
+        return;
+    }
+    
+    m_socket->flush();
     
     // Start timeout timer
     m_timeout_timer->start(m_timeout_ms);
 }
 
-void Api_Client::on_network_reply_finished()
+void Api_Client::on_socket_connected()
+{
+    qDebug() << "Socket connected to server";
+    
+    {
+        QMutexLocker locker(&m_mutex);
+        m_is_connected = true;
+    }
+    
+    emit connection_status_changed(true);
+}
+
+void Api_Client::on_socket_disconnected()
+{
+    qDebug() << "Socket disconnected from server";
+    
+    {
+        QMutexLocker locker(&m_mutex);
+        m_is_connected = false;
+        m_receive_buffer.clear();
+    }
+    
+    m_timeout_timer->stop();
+    emit connection_status_changed(false);
+}
+
+void Api_Client::on_socket_ready_read()
 {
     m_timeout_timer->stop();
     
-    QNetworkReply* reply = qobject_cast<QNetworkReply*>(sender());
-    if (!reply || reply != m_current_reply)
+    QByteArray data = m_socket->readAll();
+    m_receive_buffer.append(data);
+    
+    // Process complete JSON messages (delimited by newlines)
+    while (true)
     {
-        return;
+        int newlineIndex = m_receive_buffer.indexOf('\n');
+        if (newlineIndex == -1)
+        {
+            break; // No complete message yet
+        }
+        
+        QByteArray messageData = m_receive_buffer.left(newlineIndex);
+        // Remove \r if present before \n
+        if (!messageData.isEmpty() && messageData.endsWith('\r'))
+        {
+            messageData.chop(1);
+        }
+        m_receive_buffer.remove(0, newlineIndex + 1);
+        
+        if (messageData.isEmpty())
+        {
+            continue;
+        }
+        
+        qDebug() << "Received JSON message:" << messageData;
+        
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(messageData, &parseError);
+        
+        if (parseError.error != QJsonParseError::NoError)
+        {
+            qWarning() << "JSON parse error:" << parseError.errorString();
+            continue;
+        }
+        
+        if (doc.isObject())
+        {
+            handle_response(doc.object());
+        }
     }
-    
-    handle_response(m_current_request_type, reply);
-    
-    reply->deleteLater();
-    m_current_reply = nullptr;
+}
+
+void Api_Client::on_socket_error(QAbstractSocket::SocketError error)
+{
+    handle_socket_error(error);
 }
 
 void Api_Client::on_request_timeout()
 {
-    if (m_current_reply)
-    {
-        m_current_reply->abort();
-        emit_error("Request timeout");
-    }
+    emit_error("Request timeout");
+    disconnect_from_server();
 }
 
-void Api_Client::on_ssl_errors(QNetworkReply* reply, const QList<QSslError>& errors)
+void Api_Client::handle_response(const QJsonObject& response)
 {
-    Q_UNUSED(reply)
-    QString errorString = "SSL Errors: ";
-    for (const auto& error : errors)
-    {
-        errorString += error.errorString() + "; ";
-    }
-    emit_error(errorString);
-}
-
-void Api_Client::handle_response(Request_Type type, QNetworkReply* reply)
-{
-    Api_Response response = parse_response(reply);
+    Api_Response api_response = parse_json_response(response);
     
-    qDebug() << "Response received for:" << request_type_to_string(type);
-    qDebug() << "Success:" << response.success;
-    qDebug() << "Message:" << response.message;
+    qDebug() << "Response received for:" << request_type_to_string(m_current_request_type);
+    qDebug() << "Success:" << api_response.success;
+    qDebug() << "Message:" << api_response.message;
     
-    if (response.success)
+    if (api_response.success)
     {
-        m_is_connected = true;
-        emit connection_status_changed(true);
-        
-        if (type == Request_Type::Login || type == Request_Type::Register)
+        if (m_current_request_type == Request_Type::Login || m_current_request_type == Request_Type::Register)
         {
-            process_authentification_response(response);
-        } else
+            process_authentification_response(api_response);
+        }
+        else
         {
-            process_data_response(type, response);
+            process_data_response(m_current_request_type, api_response);
         }
     }
     else
     {
-        m_last_error = response.message;
-        handle_network_error(reply->error(), response.error_details);
+        QMutexLocker locker(&m_mutex);
+        m_last_error = api_response.message;
+        emit_error(api_response.message);
     }
     
-    emit request_completed(type, response);
+    emit request_completed(m_current_request_type, api_response);
 }
 
-Api_Client::Api_Response Api_Client::parse_response(QNetworkReply* reply) const
+Api_Client::Api_Response Api_Client::parse_json_response(const QJsonObject& json_response) const
 {
     Api_Response response;
-    response.status_code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    
-    if (reply->error() != QNetworkReply::NoError)
-    {
-        response.success = false;
-        response.message = reply->errorString();
-        response.error_details = reply->readAll();
-        return response;
-    }
-    
-    QByteArray responseData = reply->readAll();
-    
-    QJsonParseError parseError;
-    QJsonDocument jsonDoc = QJsonDocument::fromJson(responseData, &parseError);
-    
-    if (parseError.error != QJsonParseError::NoError)
-    {
-        response.success = false;
-        response.message = "JSON Parse Error: " + parseError.errorString();
-        response.error_details = responseData;
-        return response;
-    }
-    
-    QJsonObject jsonObj = jsonDoc.object();
-    response.success = jsonObj["success"].toBool();
-    response.message = jsonObj["message"].toString();
-    response.data = jsonObj["data"].toObject();
+    response.success = json_response["success"].toBool();
+    response.message = json_response["message"].toString();
+    response.data = json_response["data"].toObject();
+    response.status_code = 200; // TCP doesn't have HTTP status codes
     
     return response;
 }
@@ -364,7 +393,6 @@ void Api_Client::process_authentification_response(const Api_Response& response)
 {
     if (response.success)
     {
-        // Extract user data and potentially auth token
         QJsonObject userData = response.data;
         
         if (m_current_request_type == Request_Type::Login)
@@ -440,28 +468,32 @@ void Api_Client::process_data_response(Request_Type type, const Api_Response& re
     }
 }
 
-void Api_Client::handle_network_error(QNetworkReply::NetworkError error, const QString& error_string)
+void Api_Client::handle_socket_error(QAbstractSocket::SocketError error)
 {
-    m_is_connected = false;
+    {
+        QMutexLocker locker(&m_mutex);
+        m_is_connected = false;
+    }
+    
     emit connection_status_changed(false);
     
     QString errorMsg;
     switch (error)
     {
-        case QNetworkReply::ConnectionRefusedError:
+        case QAbstractSocket::ConnectionRefusedError:
             errorMsg = "Connection refused - Server might be down";
             break;
-        case QNetworkReply::HostNotFoundError:
+        case QAbstractSocket::HostNotFoundError:
             errorMsg = "Host not found - Check server address";
             break;
-        case QNetworkReply::TimeoutError:
-            errorMsg = "Request timeout";
+        case QAbstractSocket::SocketTimeoutError:
+            errorMsg = "Socket timeout";
             break;
-        case QNetworkReply::ContentNotFoundError:
-            errorMsg = "Content not found (404)";
+        case QAbstractSocket::NetworkError:
+            errorMsg = "Network error";
             break;
         default:
-            errorMsg = error_string.isEmpty() ? "Unknown network error" : error_string;
+            errorMsg = m_socket->errorString();
             break;
     }
     
@@ -470,7 +502,11 @@ void Api_Client::handle_network_error(QNetworkReply::NetworkError error, const Q
 
 void Api_Client::emit_error(const QString& error_message)
 {
-    m_last_error = error_message;
+    {
+        QMutexLocker locker(&m_mutex);
+        m_last_error = error_message;
+    }
+    
     qWarning() << "Api_Client error:" << error_message;
     emit network_error(error_message);
     

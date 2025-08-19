@@ -3,7 +3,6 @@
 #include "network/Socket_Server.h"
 #include <iostream>
 #include <chrono>
-#include <future>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -54,21 +53,36 @@ void SocketNetwork::Client_Handler::stop_handling()
         shutdown(client_socket, SD_BOTH);
     }
     
-    // Așteaptă cu timeout pentru thread cleanup
+    // Așteaptă pentru thread cleanup fără std::async problematic
     if (handler_thread.joinable())
     {
-        auto future = std::async(std::launch::async, [this]() {
-            handler_thread.join();
-        });
-        
-        if (future.wait_for(std::chrono::seconds(3)) == std::future_status::timeout)
+        try 
         {
-            // Thread-ul nu s-a terminat în timp util - detach pentru evitarea blocării
-            handler_thread.detach();
+            // Timeout manual folosind detach ca ultimă opțiune
+            auto start = std::chrono::steady_clock::now();
+            while (handler_thread.joinable() && 
+                   std::chrono::steady_clock::now() - start < std::chrono::seconds(2))
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                if (!is_running.load()) break;
+            }
+            
+            if (handler_thread.joinable())
+            {
+                handler_thread.join();
+            }
+        }
+        catch (const std::exception&)
+        {
+            // În caz de excepție, detach pentru siguranță
+            if (handler_thread.joinable())
+            {
+                handler_thread.detach();
+            }
         }
     }
     
-    // Acum resetează socket-ul după ce thread-ul s-a terminat sau a fost detached
+    // Acum resetează socket-ul după ce thread-ul s-a terminat
     if (client_socket.is_valid())
     {
         client_socket.reset();
@@ -171,31 +185,59 @@ std::chrono::milliseconds SocketNetwork::Client_Handler::get_idle_time() const
 
 void SocketNetwork::Client_Handler::handle_client_loop()
 {
-    while (is_running.load())
+    try 
     {
-        try 
+        while (is_running.load())
         {
-            std::string message = receive_message();
-            
-            if (message.empty())
+            try 
             {
-                if (WSAGetLastError() == WSAETIMEDOUT)
+                std::string message = receive_message();
+                
+                if (message.empty())
                 {
-                    continue; // Timeout is normal, continue listening
+                    int error = WSAGetLastError();
+                    if (error == WSAETIMEDOUT || error == 0)
+                    {
+                        continue; // Timeout is normal, continue listening
+                    }
+                    break; // Client disconnected or error
                 }
-                break; // Client disconnected or error
+                
+                if (!process_message(message))
+                {
+                    break; // Error processing message
+                }
             }
-            
-            if (!process_message(message))
+            catch (const std::exception& e)
             {
-                break; // Error processing message
+                try 
+                {
+                    send_error_response("Internal server error: " + std::string(e.what()));
+                }
+                catch (...)
+                {
+                    // Unable to send error response, just break
+                }
+                break; // Exit loop on any exception
+            }
+            catch (...)
+            {
+                // Catch any other exceptions to prevent server crash
+                try 
+                {
+                    send_error_response("Unknown internal server error");
+                }
+                catch (...)
+                {
+                    // Unable to send error response
+                }
+                break;
             }
         }
-        catch (const std::exception& e)
-        {
-            send_error_response("Internal server error: " + std::string(e.what()));
-            break;
-        }
+    }
+    catch (...)
+    {
+        // Final safety net - prevent any exception from escaping thread
     }
     
     handle_disconnection();
