@@ -101,6 +101,7 @@
     <ClCompile Include="src\ui\Destination_Card.cpp" />
     <ClCompile Include="src\ui\Login_Window.cpp" />
     <ClCompile Include="src\ui\Offer_Card.cpp" />
+    <ClCompile Include="src\ui\Settings_Dialog.cpp" />
     <ClCompile Include="src\utils\Logger.cpp" />
     <ClCompile Include="src\utils\Style_Manager.cpp" />
     <QtMoc Include="include\network\Api_Client.h" />
@@ -111,6 +112,7 @@
     <QtMoc Include="include\ui\Offer_Card.h" />
     <QtMoc Include="include\ui\Booking_Dialog.h" />
     <ClInclude Include="include\models\Offer_Data.h" />
+    <QtMoc Include="include\ui\Settings_Dialog.h" />
     <ClInclude Include="include\utils\Logger.h" />
     <ClInclude Include="include\utils\Style_Manager.h" />
     <QtMoc Include="include\core\Application.h" />

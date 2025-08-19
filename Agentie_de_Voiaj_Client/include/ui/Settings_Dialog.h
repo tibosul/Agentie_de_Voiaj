@@ -53,6 +53,8 @@ private:
     void reset_to_defaults();
 
     void apply_theme_preview();
+    void export_settings(const QString& fileName);
+    void import_settings(const QString& fileName);
 
     QTabWidget* m_tab_widget;
 
