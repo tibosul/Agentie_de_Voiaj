@@ -42,7 +42,7 @@ namespace SocketNetwork
 		std::thread accept_thread;
 		std::thread cleanup_thread;
 
-		std::map<SOCKET, std::unique_ptr<Client_Handler>> active_clients;
+		std::map<SOCKET, std::shared_ptr<Client_Handler>> active_clients;
 		std::mutex clients_mutex;
 		std::atomic<int> client_count;
 

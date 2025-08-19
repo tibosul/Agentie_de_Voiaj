@@ -1,10 +1,37 @@
+#include "core/Application.h"
 #include "ui/Main_Window.h"
-#include <QtWidgets/QApplication>
+#include "Config.h"
 
-int main(int argc, char *argv[])
+#include <QMessageBox>
+#include <QDir>
+
+int main(int argc, char* argv[])
 {
-    QApplication app(argc, argv);
-    Main_Window window;
-    window.show();
-    return app.exec();
+    // Create application instance
+    Application_Manager app(argc, argv);
+
+    // Initialize application
+    if (!app.initialize())
+    {
+        QMessageBox::critical(nullptr, "Error",
+            "Failed to initialize application!");
+        return -1;
+    }
+
+    try
+    {
+        // Create and show main window
+        Main_Window window;
+        window.show();
+
+        // Start event loop
+        return app.exec();
+
+    }
+    catch (const std::exception& e)
+    {
+        QMessageBox::critical(nullptr, "Fatal Error",
+            QString("Application error: %1").arg(e.what()));
+        return -1;
+    }
 }

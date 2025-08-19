@@ -499,16 +499,16 @@ void SocketNetwork::Socket_Server::handle_new_client(SOCKET client_socket, const
             protocol_handler = std::make_unique<Protocol_Handler>(db_manager);
         }
         
-        auto client_handler = std::make_unique<Client_Handler>(
+        auto client_handler = std::make_shared<Client_Handler>(
             client_socket, client_info, db_manager, protocol_handler.get(), this);
         
         {
             std::lock_guard<std::mutex> lock(clients_mutex);
-            active_clients[client_socket] = std::move(client_handler);
+            active_clients[client_socket] = client_handler;
             client_count++;
         }
         
-        active_clients[client_socket]->start_handling();
+        client_handler->start_handling();
         
         log_client_event(client_info, "New client connected");
         

@@ -3,6 +3,7 @@
 #include "network/Socket_Server.h"
 #include <iostream>
 #include <chrono>
+#include <future>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -47,15 +48,30 @@ void SocketNetwork::Client_Handler::stop_handling()
     
     is_running = false;
     
+    // Închide socket-ul pentru a forța ieșirea din recv()
     if (client_socket.is_valid())
     {
         shutdown(client_socket, SD_BOTH);
-        client_socket.reset(); // Închide și resetează la INVALID_SOCKET
     }
     
+    // Așteaptă cu timeout pentru thread cleanup
     if (handler_thread.joinable())
     {
-        handler_thread.join();
+        auto future = std::async(std::launch::async, [this]() {
+            handler_thread.join();
+        });
+        
+        if (future.wait_for(std::chrono::seconds(3)) == std::future_status::timeout)
+        {
+            // Thread-ul nu s-a terminat în timp util - detach pentru evitarea blocării
+            handler_thread.detach();
+        }
+    }
+    
+    // Acum resetează socket-ul după ce thread-ul s-a terminat sau a fost detached
+    if (client_socket.is_valid())
+    {
+        client_socket.reset();
     }
 }
 

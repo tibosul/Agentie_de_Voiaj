@@ -9,7 +9,7 @@ namespace Config
         const QString APP_NAME = "Agenție de Voiaj Client";
         const QString VERSION = "1.0.0";
         const QString ORGANIZATION = "Travel Agency";
-        //const QString DOMAIN = "travelagency.local";
+        const QString APP_DOMAIN = "travelagency.local";
 
         constexpr bool DEBUG_MODE = true;
         constexpr bool ENABLE_LOGGING = true;
