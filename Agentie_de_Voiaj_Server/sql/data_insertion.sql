@@ -25,13 +25,13 @@ DBCC CHECKIDENT ('Users', RESEED, 0);
 -- ======================================
 -- 1. USERS (Sample test users)
 -- ======================================
-INSERT INTO Users (Username, Password_Hash, Email, First_Name, Last_Name, Phone) VALUES
-('admin', 'hashed_admin_pass', 'admin@agency.com', 'Admin', 'System', '0721000000'),
-('john_doe', 'hashed_pass_1', 'john.doe@email.com', 'John', 'Doe', '0721111111'),
-('mary_smith', 'hashed_pass_2', 'mary.smith@gmail.com', 'Mary', 'Smith', '0722222222'),
-('robert_jones', 'hashed_pass_3', 'robert.jones@yahoo.com', 'Robert', 'Jones', '0723333333'),
-('sarah_wilson', 'hashed_pass_4', 'sarah.wilson@outlook.com', 'Sarah', 'Wilson', '0724444444'),
-('test_user', 'hashed_test_pass', 'test@test.com', 'Test', 'User', '0725555555');
+INSERT INTO Users (Username, Password_Hash, Password_Salt, Email, First_Name, Last_Name, Phone) VALUES
+('admin', 'hashed_admin_pass', 'admin', 'admin@agency.com', 'Admin', 'System', '0721000000'),
+('john_doe', 'hashed_pass_1', 'john', 'john.doe@email.com', 'John', 'Doe', '0721111111'),
+('mary_smith', 'hashed_pass_2', 'mary', 'mary.smith@gmail.com', 'Mary', 'Smith', '0722222222'),
+('robert_jones', 'hashed_pass_3', 'robert', 'robert.jones@yahoo.com', 'Robert', 'Jones', '0723333333'),
+('sarah_wilson', 'hashed_pass_4', 'sarah', 'sarah.wilson@outlook.com', 'Sarah', 'Wilson', '0724444444'),
+('test_user', 'hashed_test_pass', 'test', 'test@test.com', 'Test', 'User', '0725555555');
 
 -- ======================================
 -- 2. DESTINATIONS
