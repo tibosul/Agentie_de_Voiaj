@@ -97,11 +97,13 @@
     <ClCompile Include="src\models\Destination_Model.cpp" />
     <ClCompile Include="src\models\User_Model.cpp" />
     <ClCompile Include="src\network\Api_Client.cpp" />
+    <ClCompile Include="src\ui\Login_Window.cpp" />
     <ClCompile Include="src\utils\Logger.cpp" />
     <ClCompile Include="src\utils\Style_Manager.cpp" />
     <QtMoc Include="include\network\Api_Client.h" />
     <QtMoc Include="include\models\User_Model.h" />
     <QtMoc Include="include\models\Destination_Model.h" />
+    <QtMoc Include="include\ui\Login_Window.h" />
     <ClInclude Include="include\utils\Logger.h" />
     <ClInclude Include="include\utils\Style_Manager.h" />
     <QtMoc Include="include\core\Application.h" />
