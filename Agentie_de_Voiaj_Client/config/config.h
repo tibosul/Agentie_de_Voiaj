@@ -69,4 +69,12 @@ namespace Config
         const QString NETWORK_ERROR = "Eroare de rețea";
         const QString INVALID_DATA = "Date invalide";
     }
+
+    namespace Business
+    {
+        constexpr int MAX_PERSONS_PER_RESERVATION = 10;
+        constexpr double MIN_PRICE_PER_PERSON = 50.0; // Minimum price for a booking
+        constexpr double MAX_PRICE_PER_PERSON = 10000.0; // Maximum price for a booking
+        constexpr int MAX_DAYS_IN_ADVANCE = 365; // Maximum days to book in advance
+	}
 }
