@@ -7,6 +7,7 @@
 #include <QTimer>
 #include <QMutex>
 #include <memory>
+#include <optional>
 
 class Api_Client : public QObject
 {
@@ -127,9 +128,17 @@ private:
     QString m_last_error;
     Request_Type m_current_request_type;
     QByteArray m_receive_buffer;
+    
+    // Store pending request when not connected
+    struct Pending_Request {
+        Request_Type type;
+        QJsonObject data;
+    };
+    std::optional<Pending_Request> m_pending_request;
 
     static constexpr int DEFAULT_TIMEOUT_MS = 30000;
     static constexpr int DEFAULT_PORT = 8080;
+    static constexpr int MAX_BUFFER_SIZE = 1024 * 1024; // 1MB limit
 };
 
 Q_DECLARE_METATYPE(Api_Client::Request_Type)

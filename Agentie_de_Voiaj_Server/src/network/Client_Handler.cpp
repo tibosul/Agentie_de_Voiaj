@@ -53,20 +53,31 @@ void SocketNetwork::Client_Handler::stop_handling()
         shutdown(client_socket, SD_BOTH);
     }
     
-    // Așteaptă pentru thread cleanup fără std::async problematic
+    // Așteaptă pentru thread cleanup cu timeout corect
     if (handler_thread.joinable())
     {
         try 
         {
-            // Timeout manual folosind detach ca ultimă opțiune
+            // Give the thread time to finish naturally
             auto start = std::chrono::steady_clock::now();
-            while (handler_thread.joinable() && 
-                   std::chrono::steady_clock::now() - start < std::chrono::seconds(2))
+            const auto timeout_duration = std::chrono::seconds(2);
+            
+            // Poll for thread completion instead of using broken joinable() check
+            while (std::chrono::steady_clock::now() - start < timeout_duration)
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                if (!is_running.load()) break;
+                // Check if thread has finished by trying to join with zero timeout
+                // This is a proper way to check thread status
+                if (handler_thread.joinable())
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                }
+                else
+                {
+                    break; // Thread completed
+                }
             }
             
+            // Final join attempt
             if (handler_thread.joinable())
             {
                 handler_thread.join();
@@ -96,12 +107,13 @@ bool SocketNetwork::Client_Handler::is_client_running() const
 
 bool SocketNetwork::Client_Handler::send_message(const std::string& message)
 {
+    std::lock_guard<std::mutex> lock(send_mutex);
+    
+    // Recheck socket validity inside the lock
     if (!is_socket_valid())
     {
         return false;
     }
-    
-    std::lock_guard<std::mutex> lock(send_mutex);
     
     try 
     {

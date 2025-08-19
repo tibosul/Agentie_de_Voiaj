@@ -11,6 +11,7 @@ CREATE TABLE dbo.Users
     User_ID INT PRIMARY KEY IDENTITY(1,1),
     Username VARCHAR(50) NOT NULL UNIQUE,
     Password_Hash VARCHAR(255) NOT NULL,
+    Password_Salt VARCHAR(64) NOT NULL,
     Email VARCHAR(100) UNIQUE,
     First_Name VARCHAR(50),
     Last_Name VARCHAR(50),
@@ -141,6 +142,9 @@ CREATE TABLE dbo.Offers
         Description TEXT,
         Status VARCHAR(20) NOT NULL DEFAULT 'active',
         CHECK (Status IN ('active', 'inactive', 'expired')),
+        CHECK (Total_Seats > 0),
+        CHECK (Reserved_Seats >= 0),
+        CHECK (Reserved_Seats <= Total_Seats),
         Date_Created DATETIME DEFAULT GETDATE(),
         Date_Modified DATETIME DEFAULT GETDATE()
     );

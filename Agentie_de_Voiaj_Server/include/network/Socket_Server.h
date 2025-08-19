@@ -44,6 +44,7 @@ namespace SocketNetwork
 
 		std::map<SOCKET, std::shared_ptr<Client_Handler>> active_clients;
 		std::mutex clients_mutex;
+		std::mutex protocol_handler_mutex;
 		std::atomic<int> client_count;
 
 		std::atomic<int> total_connections;

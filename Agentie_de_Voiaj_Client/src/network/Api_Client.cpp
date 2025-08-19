@@ -5,6 +5,7 @@
 #include <QJsonArray>
 #include <QMutexLocker>
 #include <QDebug>
+#include <mutex>
 
 // Static instance
 Api_Client* Api_Client::s_instance = nullptr;
@@ -43,10 +44,11 @@ Api_Client::~Api_Client()
 
 Api_Client& Api_Client::instance()
 {
-    if (!s_instance)
-    {
+    // Thread-safe singleton using call_once
+    static std::once_flag once_flag;
+    std::call_once(once_flag, []() {
         s_instance = new Api_Client();
-    }
+    });
     return *s_instance;
 }
 
@@ -227,9 +229,12 @@ void Api_Client::send_request(Request_Type type, const QJsonObject& data)
     
     if (!is_connected())
     {
+        // Store the request for sending after connection is established
+        {
+            QMutexLocker locker(&m_mutex);
+            m_pending_request = Pending_Request{type, data};
+        }
         connect_to_server();
-        // The request will be sent after connection is established
-        // Store the request for later
         return;
     }
     
@@ -269,12 +274,23 @@ void Api_Client::on_socket_connected()
 {
     qDebug() << "Socket connected to server";
     
+    std::optional<Pending_Request> pending;
     {
         QMutexLocker locker(&m_mutex);
         m_is_connected = true;
+        pending = m_pending_request;
+        m_pending_request.reset();
     }
     
     emit connection_status_changed(true);
+    
+    // Send pending request if exists
+    if (pending.has_value())
+    {
+        qDebug() << "Sending pending request:" << request_type_to_string(pending->type);
+        m_current_request_type = pending->type;
+        send_json_message(pending->data);
+    }
 }
 
 void Api_Client::on_socket_disconnected()
@@ -296,10 +312,23 @@ void Api_Client::on_socket_ready_read()
     m_timeout_timer->stop();
     
     QByteArray data = m_socket->readAll();
+    
+    // Check buffer size limit to prevent memory exhaustion
+    if (m_receive_buffer.size() + data.size() > MAX_BUFFER_SIZE)
+    {
+        qWarning() << "Buffer size limit exceeded, clearing buffer";
+        emit_error("Receive buffer overflow - connection reset");
+        disconnect_from_server();
+        return;
+    }
+    
     m_receive_buffer.append(data);
     
     // Process complete JSON messages (delimited by newlines)
-    while (true)
+    int processed_messages = 0;
+    const int MAX_MESSAGES_PER_READ = 100; // Prevent infinite loop
+    
+    while (processed_messages < MAX_MESSAGES_PER_READ)
     {
         int newlineIndex = m_receive_buffer.indexOf('\n');
         if (newlineIndex == -1)
@@ -317,6 +346,7 @@ void Api_Client::on_socket_ready_read()
         
         if (messageData.isEmpty())
         {
+            processed_messages++;
             continue;
         }
         
@@ -328,6 +358,7 @@ void Api_Client::on_socket_ready_read()
         if (parseError.error != QJsonParseError::NoError)
         {
             qWarning() << "JSON parse error:" << parseError.errorString();
+            processed_messages++;
             continue;
         }
         
@@ -335,6 +366,13 @@ void Api_Client::on_socket_ready_read()
         {
             handle_response(doc.object());
         }
+        
+        processed_messages++;
+    }
+    
+    if (processed_messages >= MAX_MESSAGES_PER_READ)
+    {
+        qWarning() << "Maximum messages per read exceeded, possible flooding attack";
     }
 }
 

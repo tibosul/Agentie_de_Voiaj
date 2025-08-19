@@ -495,17 +495,21 @@ void SocketNetwork::Socket_Server::handle_new_client(SOCKET client_socket, const
         
         Client_Info client_info(client_socket, client_address, client_port);
         
-        if (!protocol_handler)
+        // Thread-safe protocol handler creation
         {
-            try 
+            std::lock_guard<std::mutex> protocol_lock(protocol_handler_mutex);
+            if (!protocol_handler)
             {
-                protocol_handler = std::make_unique<Protocol_Handler>(db_manager);
-            }
-            catch (const std::exception& e)
-            {
-                log_server_event("Failed to create protocol handler: " + std::string(e.what()));
-                closesocket(client_socket);
-                return;
+                try 
+                {
+                    protocol_handler = std::make_unique<Protocol_Handler>(db_manager);
+                }
+                catch (const std::exception& e)
+                {
+                    log_server_event("Failed to create protocol handler: " + std::string(e.what()));
+                    closesocket(client_socket);
+                    return;
+                }
             }
         }
         

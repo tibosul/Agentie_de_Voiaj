@@ -476,7 +476,17 @@ Database::Query_Result Database::Database_Manager::authenticate_user(const std::
         return Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid username or password format");
     }
     
-    std::string hashed_password = hash_password(password, username); // Using username as salt for simplicity
+    // First get the user's salt from database
+    std::string salt_query = "SELECT Password_Salt FROM Users WHERE Username = '" + escape_string(username) + "'";
+    Query_Result salt_result = execute_select(salt_query);
+    if (!salt_result.is_success() || salt_result.data.empty())
+    {
+        return Query_Result(Result_Type::DB_ERROR_NO_DATA, "Invalid username or password");
+    }
+    
+    std::string stored_salt = salt_result.data[0]["Password_Salt"];
+    std::string hashed_password = hash_password(password, stored_salt);
+    
     std::string query = "SELECT User_ID, Username, Email, First_Name, Last_Name, Phone FROM Users WHERE Username = '" 
                        + escape_string(username) + "' AND Password_Hash = '" + escape_string(hashed_password) + "'";
     return execute_select(query);
@@ -530,12 +540,15 @@ Database::Query_Result Database::Database_Manager::register_user(const User_Data
         return Database::Query_Result(Result_Type::ERROR_CONSTRAINT, "Invalid phone number format");
     }
     
-    std::string hashed_password = hash_password(user_data.password_hash, user_data.username);
+    // Generate a random salt for this user
+    std::string salt = Utils::Crypto::generate_salt();
+    std::string hashed_password = hash_password(user_data.password_hash, salt);
     
     std::stringstream query;
-    query << "INSERT INTO Users (Username, Password_Hash, Email, First_Name, Last_Name, Phone) VALUES ('"
+    query << "INSERT INTO Users (Username, Password_Hash, Password_Salt, Email, First_Name, Last_Name, Phone) VALUES ('"
           << escape_string(user_data.username) << "', '"
           << escape_string(hashed_password) << "', '"
+          << escape_string(salt) << "', '"
           << escape_string(user_data.email) << "', '"
           << escape_string(user_data.first_name) << "', '"
           << escape_string(user_data.last_name) << "', '"
@@ -585,8 +598,16 @@ Database::Query_Result Database::Database_Manager::change_password(int user_id, 
         return Query_Result(Result_Type::DB_ERROR_NO_DATA, "User not found");
     }
     
-    std::string username = user_result.data[0]["Username"];
-    std::string old_hash = hash_password(old_password, username);
+    // Get current salt to verify old password
+    std::string current_salt_query = "SELECT Password_Salt FROM Users WHERE User_ID = " + std::to_string(user_id);
+    Query_Result salt_result = execute_select(current_salt_query);
+    if (!salt_result.is_success() || salt_result.data.empty())
+    {
+        return Query_Result(Result_Type::DB_ERROR_NO_DATA, "User salt not found");
+    }
+    
+    std::string current_salt = salt_result.data[0]["Password_Salt"];
+    std::string old_hash = hash_password(old_password, current_salt);
     
     std::string verify_query = "SELECT User_ID FROM Users WHERE User_ID = " + std::to_string(user_id) + 
                               " AND Password_Hash = '" + escape_string(old_hash) + "'";
@@ -597,9 +618,11 @@ Database::Query_Result Database::Database_Manager::change_password(int user_id, 
         return Query_Result(Result_Type::ERROR_EXECUTION, "Invalid old password");
     }
     
-    // Update with new password
-    std::string new_hash = hash_password(new_password, username);
+    // Generate new salt and hash for new password
+    std::string new_salt = Utils::Crypto::generate_salt();
+    std::string new_hash = hash_password(new_password, new_salt);
     std::string update_query = "UPDATE Users SET Password_Hash = '" + escape_string(new_hash) + 
+                              "', Password_Salt = '" + escape_string(new_salt) +
                               "', Date_Modified = GETDATE() WHERE User_ID = " + std::to_string(user_id);
     
     return execute_update(update_query);
@@ -980,10 +1003,22 @@ Database::Query_Result Database::Database_Manager::book_offer(int user_id, int o
         return Database::Query_Result(Database::Result_Type::ERROR_CONSTRAINT, "Invalid person count");
     }
     
-    // First check if offer exists and has available seats
-    Database::Query_Result offer_result = get_offer_by_id(offer_id);
+    // Begin transaction FIRST to ensure atomic operation
+    if (!begin_transaction())
+    {
+        return Query_Result(Result_Type::ERROR_EXECUTION, "Failed to begin transaction");
+    }
+    
+    // ATOMICALLY check availability and reserve seats with row locking
+    // Use SELECT FOR UPDATE to lock the row until transaction commits
+    std::stringstream lock_query;
+    lock_query << "SELECT Total_Seats, Reserved_Seats, Price_per_Person "
+               << "FROM Offers WITH (UPDLOCK, ROWLOCK) WHERE Offer_ID = " << offer_id;
+    
+    Query_Result offer_result = execute_query(lock_query.str());
     if (!offer_result.is_success() || offer_result.data.empty())
     {
+        rollback_transaction();
         return Query_Result(Result_Type::DB_ERROR_NO_DATA, "Offer not found");
     }
     
@@ -992,21 +1027,17 @@ Database::Query_Result Database::Database_Manager::book_offer(int user_id, int o
     int reserved_seats = Utils::Conversion::string_to_int(offer_data["Reserved_Seats"]);
     int available_seats = total_seats - reserved_seats;
     
+    // Check seat availability within the locked transaction
     if (person_count > available_seats)
     {
+        rollback_transaction();
         return Query_Result(Result_Type::ERROR_CONSTRAINT, "Not enough available seats");
     }
     
     double price_per_person = Utils::Conversion::string_to_double(offer_data["Price_per_Person"]);
     double total_price = price_per_person * person_count;
     
-    // Begin transaction
-    if (!begin_transaction())
-    {
-        return Query_Result(Result_Type::ERROR_EXECUTION, "Failed to begin transaction");
-    }
-    
-    // Insert reservation
+    // Insert reservation first
     std::stringstream insert_query;
     insert_query << "INSERT INTO Reservations (User_ID, Offer_ID, Number_of_Persons, Total_Price, Status) VALUES ("
                  << user_id << ", " << offer_id << ", " << person_count << ", " << total_price << ", 'pending')";
@@ -1018,16 +1049,24 @@ Database::Query_Result Database::Database_Manager::book_offer(int user_id, int o
         return insert_result;
     }
     
-    // Update offer reserved seats
+    // Update offer reserved seats with constraint check in SQL
     std::stringstream update_query;
     update_query << "UPDATE Offers SET Reserved_Seats = Reserved_Seats + " << person_count 
-                 << " WHERE Offer_ID = " << offer_id;
+                 << " WHERE Offer_ID = " << offer_id 
+                 << " AND Reserved_Seats + " << person_count << " <= Total_Seats";
     
     Query_Result update_result = execute_query(update_query.str());
     if (!update_result.is_success())
     {
         rollback_transaction();
-        return update_result;
+        return Query_Result(Result_Type::ERROR_EXECUTION, "Failed to update reserved seats");
+    }
+    
+    // Verify the update affected a row (seat constraint was satisfied)
+    if (update_result.affected_rows == 0)
+    {
+        rollback_transaction();
+        return Query_Result(Result_Type::ERROR_CONSTRAINT, "Not enough available seats - concurrent booking detected");
     }
     
     if (!commit_transaction())

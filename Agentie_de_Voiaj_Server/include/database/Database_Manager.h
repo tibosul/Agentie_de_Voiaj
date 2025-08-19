@@ -34,6 +34,7 @@ struct User_Data
 	int id = 0;
 	std::string username;
 	std::string password_hash;
+	std::string password_salt;
 	std::string email;
 	std::string first_name;
 	std::string last_name;
