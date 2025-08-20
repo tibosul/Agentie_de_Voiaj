@@ -197,3 +197,4 @@ if "%all_checks_passed%"=="true" (
 
 echo.
 pause
+
