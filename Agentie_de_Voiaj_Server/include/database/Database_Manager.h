@@ -28,139 +28,8 @@
 
 #pragma comment(lib, "odbc32.lib")
 
-// Data structures - MUST be defined before Database namespace
-struct User_Data
-{
-	int id = 0;
-	std::string username;
-	std::string password_hash;
-	std::string password_salt;
-	std::string email;
-	std::string first_name;
-	std::string last_name;
-	std::string phone_number;
-	std::string created_at;
-	std::string updated_at;
-	
-	User_Data() : id(0) 
-	{
-	}
-};
-
-struct Destination_Data
-{
-	int id = 0;
-	std::string name;
-	std::string country;
-	std::string description;
-	std::string image_path;
-	std::string created_at;
-	std::string updated_at;
-	
-	Destination_Data() : id(0) 
-	{
-	}
-};
-
-struct Transport_Type_Data
-{
-	int id = 0;
-	std::string name;
-	std::string description;
-	std::string created_at;
-	std::string updated_at;
-	
-	Transport_Type_Data() : id(0) 
-	{
-	}
-};
-
-struct Accommodation_Type_Data
-{
-	int id = 0;
-	std::string name;
-	std::string description;
-	std::string created_at;
-	std::string updated_at;
-	
-	Accommodation_Type_Data() : id(0) 
-	{
-	}
-};
-
-struct Accommodation_Data
-{
-	int id = 0;
-	std::string name;
-	int destination_id = 0;
-	int accommodation_type_id = 0;
-	std::string category;
-	std::string address;
-	std::string facilities;
-	double rating = 0.0;
-	std::string description;
-	std::string created_at;
-	std::string updated_at;
-	
-	Accommodation_Data() : id(0), destination_id(0), accommodation_type_id(0), rating(0.0) 
-	{
-	}
-};
-
-struct Trip_Data
-{
-	int id = 0;
-	std::string name;
-	int destination_id = 0;
-	int accommodation_id = 0;
-	int transport_type_id = 0;
-	double price_per_person = 0.0;
-	int duration_days = 0;
-	std::string departure_date;
-	std::string return_date;
-	int total_seats = 0;
-	int reserved_seats = 0;
-	std::string included_services;
-	std::string description;
-	std::string status;
-	std::string created_at;
-	std::string updated_at;
-	
-	Trip_Data() : id(0), destination_id(0), accommodation_id(0), transport_type_id(0), 
-		price_per_person(0.0), duration_days(0), total_seats(0), reserved_seats(0) 
-	{
-	}
-};
-
-struct Booking_Data
-{
-	int id = 0;
-	int user_id = 0;
-	int offer_id = 0;
-	int number_of_persons = 0;
-	double total_price = 0.0;
-	std::string reservation_date;
-	std::string status;
-	std::string notes;
-	
-	Booking_Data() : id(0), user_id(0), offer_id(0), number_of_persons(0), total_price(0.0) 
-	{
-	}
-};
-
-struct Reservation_Person_Data
-{
-	int id = 0;
-	int reservation_id = 0;
-	std::string full_name;
-	std::string cnp;
-	std::string birth_date;
-	std::string person_type;
-	
-	Reservation_Person_Data() : id(0), reservation_id(0) 
-	{
-	}
-};
+// Data structures - included from separate header files
+#include "models/All_Data_Structures.h"
 
 namespace Database
 {
@@ -306,8 +175,8 @@ namespace Database
 			double min_price = 0, double max_price = 0,
 			const std::string& start_date = "", 
 			const std::string& end_date = "");
-		Query_Result add_offer(const Trip_Data& offer);
-		Query_Result update_offer(const Trip_Data& offer);
+		Query_Result add_offer(const Offer_Data& offer);
+		Query_Result update_offer(const Offer_Data& offer);
 		Query_Result delete_offer(int offer_id);
 
 		// Reservation management
