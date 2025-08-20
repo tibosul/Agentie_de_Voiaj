@@ -113,13 +113,15 @@ void Api_Client::connect_to_server()
     qDebug() << "Connecting to server:" << m_server_host << ":" << m_server_port;
     m_socket->connectToHost(m_server_host, m_server_port);
     
-    // Set connection timeout
-    if (!m_socket->waitForConnected(CONNECTION_TIMEOUT_MS))
-    {
-        QString error = QString("Connection timeout: %1").arg(m_socket->errorString());
-        qWarning() << error;
-        emit network_error(error);
-    }
+    // Start connection timeout timer (non-blocking approach)
+    QTimer::singleShot(CONNECTION_TIMEOUT_MS, this, [this]() {
+        if (m_socket->state() == QAbstractSocket::ConnectingState) {
+            QString error = QString("Connection timeout: %1").arg(m_socket->errorString());
+            qWarning() << error;
+            m_socket->abort();
+            emit network_error(error);
+        }
+    });
 }
 
 void Api_Client::disconnect_from_server()
@@ -129,11 +131,11 @@ void Api_Client::disconnect_from_server()
     
     if (m_socket->state() == QAbstractSocket::ConnectedState)
     {
+        qDebug() << "Disconnecting from server (non-blocking)";
         m_socket->disconnectFromHost();
-        if (m_socket->state() != QAbstractSocket::UnconnectedState)
-        {
-            m_socket->waitForDisconnected(3000);
-        }
+        
+        // Don't use blocking waitForDisconnected - let Qt handle it asynchronously
+        // The disconnected signal will be emitted when the socket is actually disconnected
     }
 }
 
@@ -549,10 +551,13 @@ void Api_Client::on_socket_disconnected()
     emit connection_status_changed(false);
     
     // Start reconnection attempts only if this wasn't an intentional disconnect
-    if (m_socket->state() != QAbstractSocket::UnconnectedState || m_socket->error() != QAbstractSocket::UnknownSocketError) {
+    // Check if there's a socket error (not intentional disconnect)
+    if (m_socket->error() != QAbstractSocket::UnknownSocketError && 
+        m_socket->error() != QAbstractSocket::RemoteHostClosedError) {
         if (!m_reconnect_timer->isActive()) {
-            qDebug() << "Starting reconnection attempts...";
-            m_reconnect_timer->start();
+            qDebug() << "Starting reconnection attempts due to error:" << m_socket->errorString();
+            // Add delay before first reconnection attempt
+            m_reconnect_timer->start(2000);  // Start after 2 seconds
         }
     }
 }
@@ -652,8 +657,17 @@ void Api_Client::on_socket_error(QAbstractSocket::SocketError error)
 
 void Api_Client::on_request_timeout()
 {
-    emit_error("Request timeout");
-    disconnect_from_server();
+    qWarning() << "Request timeout occurred for:" << request_type_to_string(m_current_request_type);
+    
+    // Don't disconnect completely for request timeout, just emit error
+    // The connection might still be valid, just this specific request failed
+    emit_error("Request timeout - server did not respond in time");
+    
+    // Clear pending request if any
+    {
+        QMutexLocker locker(&m_mutex);
+        m_pending_request.reset();
+    }
 }
 
 void Api_Client::handle_response(const QJsonObject& response)

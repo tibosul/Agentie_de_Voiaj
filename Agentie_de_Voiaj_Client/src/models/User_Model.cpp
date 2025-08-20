@@ -150,23 +150,24 @@ void User_Model::load_login_state()
 void User_Model::clear_saved_state()
 {
     m_settings->clear();
-    m_settings->sync();
+    // Remove sync() call to avoid UI blocking - Qt will sync automatically when needed
 }
 
 void User_Model::connect_api_signals()
 {
     Api_Client& api = Api_Client::instance();
     
+    // Use Qt::QueuedConnection to ensure signals are handled in the correct thread
     connect(&api, &Api_Client::login_success,
-            this, &User_Model::on_api_login_success);
+            this, &User_Model::on_api_login_success, Qt::QueuedConnection);
     connect(&api, &Api_Client::login_failed,
-            this, &User_Model::on_api_login_failed);
+            this, &User_Model::on_api_login_failed, Qt::QueuedConnection);
     connect(&api, &Api_Client::register_success,
-            this, &User_Model::on_api_register_success);
+            this, &User_Model::on_api_register_success, Qt::QueuedConnection);
     connect(&api, &Api_Client::register_failed,
-            this, &User_Model::on_api_register_failed);
+            this, &User_Model::on_api_register_failed, Qt::QueuedConnection);
     connect(&api, &Api_Client::user_info_received,
-            this, &User_Model::on_api_user_info_received);
+            this, &User_Model::on_api_user_info_received, Qt::QueuedConnection);
 }
 
 void User_Model::on_api_login_success(const QJsonObject& user_data)
@@ -187,11 +188,14 @@ void User_Model::on_api_login_success(const QJsonObject& user_data)
 void User_Model::on_api_login_failed(const QString& error_message)
 {
     qDebug() << "User_Model: Login failed:" << error_message;
+    qDebug() << "User_Model: About to emit login_failed signal";
     
     m_user_data.clear();
     
     emit login_failed(error_message);
     emit authentication_status_changed(false);
+    
+    qDebug() << "User_Model: login_failed signal emitted";
 }
 
 void User_Model::on_api_register_success()
@@ -256,7 +260,7 @@ void User_Model::save_user_settings()
     m_settings->setValue("last_login", m_user_data.last_login);
     m_settings->setValue("is_authenticated", m_user_data.is_authenticated);
     m_settings->endGroup();
-    m_settings->sync();
+    // Remove sync() call to avoid UI blocking - Qt will sync automatically when needed
 }
 
 void User_Model::load_user_settings()

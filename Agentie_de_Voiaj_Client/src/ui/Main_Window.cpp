@@ -5,6 +5,7 @@
 #include "models/Destination_Model.h"
 #include "models/Offer_Model.h"
 #include "models/Reservation_Model.h"
+#include "utils/Style_Manager.h"
 #include "config.h"
 
 #include <QApplication>
@@ -73,6 +74,7 @@ Main_Window::Main_Window(QWidget *parent)
     , m_profile_edit_button(nullptr)
     , m_profile_save_button(nullptr)
     , m_profile_cancel_button(nullptr)
+    , m_style_manager(std::make_unique<Style_Manager>())
     , m_is_authenticated(false)
     , m_current_theme("light")
 {
@@ -80,6 +82,16 @@ Main_Window::Main_Window(QWidget *parent)
     setup_menu_bar();
     setup_status_bar();
     setup_connections();
+    
+    // Initialize connection status display
+    if (m_connection_status_label) {
+        m_connection_status_label->setText("🔄 Se conectează...");
+        m_connection_status_label->setStyleSheet("color: blue; font-weight: bold;");
+    }
+    if (m_progress_bar) {
+        m_progress_bar->setVisible(true);
+        m_progress_bar->setRange(0, 0); // Indeterminate progress
+    }
     
     // Initialize API client connection
     Api_Client::instance().initialize_connection();
@@ -932,7 +944,21 @@ void Main_Window::setup_connections()
     connect(&Api_Client::instance(), &Api_Client::connection_status_changed,
             [this](bool connected) {
                 if (m_connection_status_label) {
-                    m_connection_status_label->setText(connected ? "Conectat" : "Deconectat");
+                    QString status = connected ? "🟢 Conectat" : "🔴 Deconectat";
+                    m_connection_status_label->setText(status);
+                    m_connection_status_label->setStyleSheet(
+                        connected ? "color: green; font-weight: bold;" : "color: red; font-weight: bold;"
+                    );
+                }
+                // Show/hide progress bar based on connection status
+                if (m_progress_bar) {
+                    if (connected) {
+                        m_progress_bar->setVisible(false);
+                    } else {
+                        // Show progress bar when attempting to reconnect
+                        m_progress_bar->setVisible(true);
+                        m_progress_bar->setRange(0, 0); // Indeterminate progress
+                    }
                 }
                 qDebug() << "Connection status changed:" << (connected ? "Connected" : "Disconnected");
             });
@@ -940,11 +966,19 @@ void Main_Window::setup_connections()
     connect(&Api_Client::instance(), &Api_Client::network_error,
             [this](const QString& error) {
                 if (m_connection_status_label) {
-                    m_connection_status_label->setText("Eroare conexiune");
+                    m_connection_status_label->setText("⚠️ Eroare conexiune");
+                    m_connection_status_label->setStyleSheet("color: orange; font-weight: bold;");
+                }
+                if (m_progress_bar) {
+                    m_progress_bar->setVisible(false);
                 }
                 qDebug() << "Network error:" << error;
-                QMessageBox::warning(this, "Eroare de rețea", 
-                    QString("Eroare de conexiune la server: %1").arg(error));
+                
+                // Only show error dialog for critical errors, not timeout errors
+                if (!error.contains("timeout", Qt::CaseInsensitive)) {
+                    QMessageBox::warning(this, "Eroare de rețea", 
+                        QString("Eroare de conexiune la server: %1").arg(error));
+                }
             });
 }
 
@@ -992,8 +1026,10 @@ void Main_Window::on_toggle_theme_action()
     m_current_theme = (m_current_theme == "light") ? "dark" : "light";
     m_theme_toggle_button->setText((m_current_theme == "light") ? "🌙" : "☀️");
     
-    // Apply theme (StyleManager will be used here in future)
-    QMessageBox::information(this, "Temă", QString("Comutare la tema: %1").arg(m_current_theme));
+    // Apply theme using Style_Manager
+    m_style_manager->toggle_theme();
+    
+    qDebug() << "Theme switched to:" << m_current_theme;
 }
 
 void Main_Window::on_test_connection_action()

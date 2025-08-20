@@ -74,7 +74,14 @@ void Style_Manager::apply_style_sheet(const QString& style_sheet)
 {
     if (QApplication* app = qApp)
     {
-        app->setStyleSheet(style_sheet);
+        // Only apply if the stylesheet is different to avoid unnecessary UI updates
+        if (app->styleSheet() != style_sheet) {
+            qDebug() << "Applying new stylesheet of length:" << style_sheet.length();
+            app->setStyleSheet(style_sheet);
+            qDebug() << "Stylesheet applied successfully";
+        } else {
+            qDebug() << "Stylesheet unchanged, skipping application";
+        }
     }
 }
 

@@ -18,6 +18,7 @@
 #include "models/Destination_Model.h"
 #include "models/Offer_Model.h"
 #include "models/Reservation_Model.h"
+#include "utils/Style_Manager.h"
 class QPropertyAnimation;
 
 QT_BEGIN_NAMESPACE
@@ -146,6 +147,7 @@ private:
     QPushButton* m_profile_cancel_button;
 
     std::unique_ptr<QPropertyAnimation> m_tab_animation;
+    std::unique_ptr<Style_Manager> m_style_manager;
 
     bool m_is_authenticated;
     QString m_current_theme;

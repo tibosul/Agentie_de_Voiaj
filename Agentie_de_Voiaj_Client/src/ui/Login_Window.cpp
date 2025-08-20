@@ -220,11 +220,11 @@ void Login_Window::setup_connections()
     connect(m_password_input, &QLineEdit::returnPressed, this, &Login_Window::on_login_clicked);
     connect(m_register_confirm_password, &QLineEdit::returnPressed, this, &Login_Window::on_register_clicked);
     
-    // Model connections
-    connect(m_user_model.get(), &User_Model::login_success, this, &Login_Window::on_login_success);
-    connect(m_user_model.get(), &User_Model::login_failed, this, &Login_Window::on_login_failed);
-    connect(m_user_model.get(), &User_Model::register_success, this, &Login_Window::on_register_success);
-    connect(m_user_model.get(), &User_Model::register_failed, this, &Login_Window::on_register_failed);
+    // Model connections - use Qt::QueuedConnection for thread safety
+    connect(m_user_model.get(), &User_Model::login_success, this, &Login_Window::on_login_success, Qt::QueuedConnection);
+    connect(m_user_model.get(), &User_Model::login_failed, this, &Login_Window::on_login_failed, Qt::QueuedConnection);
+    connect(m_user_model.get(), &User_Model::register_success, this, &Login_Window::on_register_success, Qt::QueuedConnection);
+    connect(m_user_model.get(), &User_Model::register_failed, this, &Login_Window::on_register_failed, Qt::QueuedConnection);
 }
 
 void Login_Window::setup_validation()
@@ -240,16 +240,23 @@ void Login_Window::setup_validation()
 
 void Login_Window::on_login_clicked()
 {
+    qDebug() << "Login_Window: Login button clicked";
+    
     if (!validate_login_form()) {
+        qDebug() << "Login_Window: Form validation failed";
         return;
     }
     
+    qDebug() << "Login_Window: Setting loading state to true";
     set_loading_state(true);
+    qDebug() << "Login_Window: Loading state set, login button enabled:" << m_login_button->isEnabled();
     
     QString username = m_username_input->text().trimmed();
     QString password = m_password_input->text();
     
+    qDebug() << "Login_Window: Calling user_model->login for user:" << username;
     m_user_model->login(username, password);
+    qDebug() << "Login_Window: login() call completed";
 }
 
 void Login_Window::on_register_clicked()
@@ -297,8 +304,14 @@ void Login_Window::on_login_success()
 
 void Login_Window::on_login_failed(const QString& error_message)
 {
+    qDebug() << "Login_Window: Received login_failed signal with message:" << error_message;
+    qDebug() << "Login_Window: Current loading state:" << m_is_loading;
+    
     set_loading_state(false);
     show_error("Autentificare eșuată: " + error_message);
+    
+    qDebug() << "Login_Window: After processing login_failed, loading state:" << m_is_loading;
+    qDebug() << "Login_Window: Login button enabled:" << m_login_button->isEnabled();
 }
 
 void Login_Window::on_register_success()
@@ -374,6 +387,8 @@ void Login_Window::set_register_mode()
 
 void Login_Window::set_loading_state(bool loading)
 {
+    qDebug() << "Login_Window: Setting loading state to:" << loading;
+    
     m_is_loading = loading;
     
     // Disable/enable inputs
@@ -397,6 +412,11 @@ void Login_Window::set_loading_state(bool loading)
     } else {
         m_progress_bar->hide();
     }
+    
+    // Force UI update to prevent freezing
+    QApplication::processEvents();
+    
+    qDebug() << "Login_Window: Loading state set, UI updated";
 }
 
 bool Login_Window::validate_login_form()
