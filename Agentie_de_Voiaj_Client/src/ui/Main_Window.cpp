@@ -5,6 +5,7 @@
 #include "models/Destination_Model.h"
 #include "models/Offer_Model.h"
 #include "models/Reservation_Model.h"
+#include "core/Application.h"
 #include "config.h"
 
 #include <QApplication>
@@ -80,6 +81,14 @@ Main_Window::Main_Window(QWidget *parent)
     setup_menu_bar();
     setup_status_bar();
     setup_connections();
+    
+    // Initialize theme state
+    Application_Manager* app = Application_Manager::instance();
+    if (app)
+    {
+        m_current_theme = app->get_current_theme();
+        m_theme_toggle_button->setText((m_current_theme == "light") ? "🌙" : "☀️");
+    }
     
     // Initialize API client connection
     Api_Client::instance().initialize_connection();
@@ -988,12 +997,19 @@ void Main_Window::on_settings_action()
 
 void Main_Window::on_toggle_theme_action()
 {
-    // Toggle between light and dark theme
-    m_current_theme = (m_current_theme == "light") ? "dark" : "light";
-    m_theme_toggle_button->setText((m_current_theme == "light") ? "🌙" : "☀️");
-    
-    // Apply theme (StyleManager will be used here in future)
-    QMessageBox::information(this, "Temă", QString("Comutare la tema: %1").arg(m_current_theme));
+    // Get the application manager and toggle theme
+    Application_Manager* app = Application_Manager::instance();
+    if (app)
+    {
+        app->toggle_theme();
+        m_current_theme = app->get_current_theme();
+        m_theme_toggle_button->setText((m_current_theme == "light") ? "🌙" : "☀️");
+        qDebug() << "Theme toggled to:" << m_current_theme;
+    }
+    else
+    {
+        qWarning() << "Application_Manager not available for theme toggle";
+    }
 }
 
 void Main_Window::on_test_connection_action()

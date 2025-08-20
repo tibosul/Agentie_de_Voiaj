@@ -1,5 +1,6 @@
 #include "ui/Login_Window.h"
 #include "models/User_Model.h"
+#include "network/Api_Client.h"
 #include "config.h"
 
 #include <QVBoxLayout>
@@ -225,6 +226,9 @@ void Login_Window::setup_connections()
     connect(m_user_model.get(), &User_Model::login_failed, this, &Login_Window::on_login_failed);
     connect(m_user_model.get(), &User_Model::register_success, this, &Login_Window::on_register_success);
     connect(m_user_model.get(), &User_Model::register_failed, this, &Login_Window::on_register_failed);
+    
+    // Connect to Api_Client network errors to handle connection failures
+    connect(&Api_Client::instance(), &Api_Client::network_error, this, &Login_Window::on_network_error);
 }
 
 void Login_Window::setup_validation()
@@ -315,6 +319,13 @@ void Login_Window::on_register_failed(const QString& error_message)
 {
     set_loading_state(false);
     show_error("Înregistrare eșuată: " + error_message);
+}
+
+void Login_Window::on_network_error(const QString& error_message)
+{
+    // Clear loading state on network errors to prevent UI from being stuck
+    set_loading_state(false);
+    show_error("Eroare de conexiune: " + error_message);
 }
 
 void Login_Window::load_saved_credentials()

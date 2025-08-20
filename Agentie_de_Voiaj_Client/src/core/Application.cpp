@@ -154,6 +154,32 @@ QString Application_Manager::get_cache_path() const
     return m_cache_path;
 }
 
+Style_Manager* Application_Manager::get_style_manager() const
+{
+    return m_style_manager.get();
+}
+
+void Application_Manager::toggle_theme()
+{
+    if (m_style_manager)
+    {
+        m_style_manager->toggle_theme();
+        if (m_logger)
+        {
+            m_logger->info("Theme toggled to: " + m_style_manager->get_current_theme());
+        }
+    }
+}
+
+QString Application_Manager::get_current_theme() const
+{
+    if (m_style_manager)
+    {
+        return m_style_manager->get_current_theme();
+    }
+    return Config::UI::DEFAULT_THEME;
+}
+
 void Application_Manager::on_last_window_closed()
 {
     if (m_logger)

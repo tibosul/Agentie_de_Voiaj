@@ -33,6 +33,8 @@ private slots:
     void on_login_failed(const QString& error_message);
     void on_register_success();
     void on_register_failed(const QString& error_message);
+    
+    void on_network_error(const QString& error_message);
 
 private:
     void setup_ui();

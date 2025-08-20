@@ -31,6 +31,11 @@ public:
     QString get_application_data_path() const;
     QString get_log_path() const;
     QString get_cache_path() const;
+    Style_Manager* get_style_manager() const;
+    
+    // Theme management
+    void toggle_theme();
+    QString get_current_theme() const;
 
 private slots:
     void on_last_window_closed();
