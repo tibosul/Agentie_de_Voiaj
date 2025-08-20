@@ -26,9 +26,9 @@ Api_Client::Api_Client(QObject* parent)
     connect(m_timeout_timer.get(), &QTimer::timeout, 
             this, &Api_Client::on_request_timeout);
     
-    // Setup reconnection timer
-    m_reconnect_timer->setSingleShot(true);
-    m_reconnect_timer->setInterval(5000); // Retry every 5 seconds
+    	// Setup reconnection timer
+	m_reconnect_timer->setSingleShot(true);
+	m_reconnect_timer->setInterval(Config::Server::CONNECTION_TIMEOUT_MS / 6); // Retry every 5 seconds
     connect(m_reconnect_timer.get(), &QTimer::timeout, 
             this, &Api_Client::attempt_reconnection);
     
@@ -113,15 +113,15 @@ void Api_Client::connect_to_server()
     qDebug() << "Connecting to server:" << m_server_host << ":" << m_server_port;
     m_socket->connectToHost(m_server_host, m_server_port);
     
-    // Start connection timeout timer (non-blocking approach)
-    QTimer::singleShot(CONNECTION_TIMEOUT_MS, this, [this]() {
-        if (m_socket->state() == QAbstractSocket::ConnectingState) {
-            QString error = QString("Connection timeout: %1").arg(m_socket->errorString());
-            qWarning() << error;
-            m_socket->abort();
-            emit network_error(error);
-        }
-    });
+    	// Start connection timeout timer (non-blocking approach)
+	QTimer::singleShot(Config::Server::CONNECTION_TIMEOUT_MS, this, [this]() {
+		if (m_socket->state() == QAbstractSocket::ConnectingState) {
+			QString error = QString("Connection timeout: %1").arg(m_socket->errorString());
+			qWarning() << error;
+			m_socket->abort();
+			emit network_error(error);
+		}
+	});
 }
 
 void Api_Client::disconnect_from_server()
@@ -506,9 +506,9 @@ void Api_Client::send_json_message(const QJsonObject& message)
         qWarning() << "Socket flush failed, but data was written";
     }
     
-    // Start timeout timer with configured timeout
-    int timeout = (m_timeout_ms > 0) ? m_timeout_ms : REQUEST_TIMEOUT_MS;
-    m_timeout_timer->start(timeout);
+    	// Start timeout timer with configured timeout
+	int timeout = (m_timeout_ms > 0) ? m_timeout_ms : Config::Server::REQUEST_TIMEOUT_MS;
+	m_timeout_timer->start(timeout);
 }
 
 void Api_Client::on_socket_connected()
@@ -572,13 +572,26 @@ void Api_Client::attempt_reconnection()
         return;
     }
     
-    // Don't attempt reconnection if we're already trying to connect
-    if (m_socket->state() == QAbstractSocket::ConnectingState) {
-        qDebug() << "Connection attempt already in progress";
-        return;
-    }
-    
-    connect_to_server();
+    	// Don't attempt reconnection if we're already trying to connect
+	if (m_socket->state() == QAbstractSocket::ConnectingState) {
+		qDebug() << "Connection attempt already in progress";
+		return;
+	}
+	
+	// Limit reconnection attempts to prevent infinite loops
+	static int reconnection_attempts = 0;
+	reconnection_attempts++;
+	
+	if (reconnection_attempts > Config::Server::MAX_RETRIES) {
+		qWarning() << "Maximum reconnection attempts reached, stopping";
+		m_reconnect_timer->stop();
+		reconnection_attempts = 0;
+		emit_error("Maximum reconnection attempts reached");
+		return;
+	}
+	
+	qDebug() << "Reconnection attempt" << reconnection_attempts << "of" << Config::Server::MAX_RETRIES;
+	connect_to_server();
 }
 
 void Api_Client::on_socket_ready_read()

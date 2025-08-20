@@ -119,7 +119,7 @@ private:
 
     // Constants
     static constexpr int CONNECTION_TIMEOUT_MS = 5000;
-    static constexpr int REQUEST_TIMEOUT_MS = 10000;
+    	static constexpr int REQUEST_TIMEOUT_MS = 15000; // 15 seconds - matches config.h
 
     static Api_Client* s_instance;
 
@@ -145,7 +145,7 @@ private:
     };
     std::optional<Pending_Request> m_pending_request;
 
-    static constexpr int DEFAULT_TIMEOUT_MS = 30000;
+    	static constexpr int DEFAULT_TIMEOUT_MS = 15000; // 15 seconds - matches config.h
     static constexpr int DEFAULT_PORT = 8080;
     static constexpr int MAX_BUFFER_SIZE = 1024 * 1024; // 1MB limit
 };
