@@ -76,25 +76,43 @@ Agentie_de_Voiaj/
 
 ## Quick Start
 
+### 0. See Available Scripts
+```bash
+# List all available scripts and their purposes
+list_scripts.bat
+```
+
 ### 1. Build the Project
 ```bash
 # Build both server and client
 build.bat
+
+# OR: Complete fresh start (cleans everything and rebuilds)
+reset_all.bat
 ```
 
-### 2. Setup Database
+### 2. Quick System Test
 ```bash
+# Test if system is ready
+quick_test.bat
+```
+
+### 3. Setup Database
+```bash
+# For a completely fresh start (optional - deletes existing data)
+fresh_database.bat
+
 # Create database and tables
 setup_database.bat
 ```
 
-### 3. Start Server
+### 4. Start Server
 ```bash
 # Start the server on port 8080
 run_server.bat
 ```
 
-### 4. Start Client
+### 5. Start Client
 ```bash
 # Start the client application
 run_client.bat
@@ -105,8 +123,9 @@ run_client.bat
 ### Database Configuration
 1. **Install SQL Server** (Express edition is sufficient)
 2. **Enable TCP/IP** in SQL Server Configuration Manager
-3. **Configure ODBC** data source (see `config.h`)
-4. **Run setup script**: `setup_database.bat`
+3. **Run quick test**: `quick_test.bat` to verify SQL Server accessibility
+4. **Run setup script**: `setup_database.bat` to create database and tables
+5. **Verify connection**: Server will automatically detect SQL Server instance
 
 ### Build Configuration
 1. **Open solution** in Visual Studio
@@ -180,6 +199,10 @@ All communication uses JSON format:
 - **Tables not found**: Run `setup_database.bat`
 - **Permission denied**: Check SQL Server authentication settings
 - **Connection timeout**: Verify network configuration
+- **Database not found**: Server automatically creates database if it doesn't exist
+- **SQL Server not accessible**: Run `quick_test.bat` to diagnose connection issues
+- **Database creation fails**: Run `test_database.bat` for step-by-step debugging
+- **Reset issues**: Use `fresh_database.bat` then `setup_database.bat` separately
 
 ### Debug Mode
 - **Server logs**: Check console output for detailed information

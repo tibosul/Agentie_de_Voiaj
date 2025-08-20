@@ -172,26 +172,26 @@ INSERT INTO Reservations (User_ID, Offer_ID, Number_of_Persons, Total_Price, Sta
 -- ======================================
 -- 8. RESERVATION PERSONS
 -- ======================================
-INSERT INTO Reservation_Persons (Reservation_ID, Full_Name, CNP, Birth_Date, Person_Type) VALUES
--- Reservation 1: Paris Luxury (2 persons)
-(1, 'John Doe', '1801023123456', '1980-01-02', 'adult'),
-(1, 'Jane Doe', '2851215234567', '1985-12-15', 'adult'),
+	INSERT INTO Reservation_Persons (Reservation_ID, Full_Name, CNP, Birth_Date, Person_Type) VALUES
+	-- Reservation 1: Paris Luxury (2 persons)
+	(1, 'John Doe', '1801023123456', '1980-01-02', 'adult'),
+	(1, 'Jane Doe', '2851215234567', '1985-12-15', 'adult'),
 
--- Reservation 2: Paris Budget (1 person)
-(2, 'Mary Smith', '2920308345678', '1992-03-08', 'adult'),
+	-- Reservation 2: Paris Budget (1 person)
+	(2, 'Mary Smith', '2920308345678', '1992-03-08', 'adult'),
 
--- Reservation 3: Rome Imperial (2 persons)
-(3, 'Robert Jones', '1750612456789', '1975-06-12', 'adult'),
-(3, 'Linda Jones', '2780924567890', '1978-09-24', 'adult'),
+	-- Reservation 3: Rome Imperial (2 persons)
+	(3, 'Robert Jones', '1750612456789', '1975-06-12', 'adult'),
+	(3, 'Linda Jones', '2780924567890', '1978-09-24', 'adult'),
 
--- Reservation 4: Barcelona Beach (3 persons)
-(4, 'Sarah Wilson', '2870515678901', '1987-05-15', 'adult'),
-(4, 'Michael Wilson', '1820701789012', '1982-07-01', 'adult'),
-(4, 'Emma Wilson', '3060318890123', '2006-03-18', 'child'),
+	-- Reservation 4: Barcelona Beach (3 persons)
+	(4, 'Sarah Wilson', '2870515678901', '1987-05-15', 'adult'),
+	(4, 'Michael Wilson', '1820701789012', '1982-07-01', 'adult'),
+	(4, 'Emma Wilson', '3060318890123', '2006-03-18', 'child'),
 
--- Reservation 5: London Budget (1 person)
-(5, 'John Doe', '1801023123456', '1980-01-02', 'adult'),
+	-- Reservation 5: London Budget (1 person)
+	(5, 'John Doe', '1801023123456', '1980-01-02', 'adult'),
 
--- Reservation 6: Amsterdam Canal (2 persons)
-(6, 'Test User', '1901010901234', '1990-01-01', 'adult'),
-(6, 'Test Partner', '2881225012345', '1988-12-25', 'adult');
+	-- Reservation 6: Amsterdam Canal (2 persons)
+	(6, 'Test User', '1901010901234', '1990-01-01', 'adult'),
+	(6, 'Test Partner', '2881225012345', '1988-12-25', 'adult');

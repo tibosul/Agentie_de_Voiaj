@@ -98,6 +98,7 @@ namespace Database
 			const std::string& username, const std::string& password);
 		bool disconnect();
 		bool is_connection_alive() const;
+		bool database_exists() const;
 		bool reconnect();
 
 		// Configuration

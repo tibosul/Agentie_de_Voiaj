@@ -34,5 +34,6 @@
     <None Include="sql\tables.sql" />
     <None Include="sql\triggers.sql" />
     <None Include="sql\views.sql" />
+    <None Include="sql\fresh_database.sql" />
   </ItemGroup>
 </Project>

@@ -137,12 +137,15 @@ bool Database::Database_Manager::connect()
     if (SQL_SUCCEEDED(ret))
     {
         is_connected = true;
+        Utils::Logger::info("Database connection successful to: " + server + "\\" + database);
         return true;
     }
     else
     {
         std::string error = get_sql_error(SQL_HANDLE_DBC, hdbc);
-        throw DatabaseException("Connection failed: " + error, WSAGetLastError());
+        std::string detailed_error = "Connection failed to " + server + "\\" + database + ": " + error;
+        Utils::Logger::error(detailed_error);
+        throw DatabaseException(detailed_error, WSAGetLastError());
     }
 }
 
@@ -174,6 +177,30 @@ bool Database::Database_Manager::is_connection_alive() const
     
     SQLRETURN ret = SQLGetConnectAttr(hdbc, SQL_ATTR_CONNECTION_DEAD, NULL, 0, NULL);
     return SQL_SUCCEEDED(ret);
+}
+
+bool Database::Database_Manager::database_exists() const
+{
+    if (!is_connected) return false;
+    
+    try
+    {
+        // Try to query the database to see if it exists
+        SQLHSTMT temp_stmt;
+        SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &temp_stmt);
+        if (!SQL_SUCCEEDED(ret)) return false;
+        
+        // Simple query to test database access
+        ret = SQLExecDirectA(temp_stmt, (SQLCHAR*)"SELECT 1", SQL_NTS);
+        bool exists = SQL_SUCCEEDED(ret);
+        
+        SQLFreeHandle(SQL_HANDLE_STMT, temp_stmt);
+        return exists;
+    }
+    catch (...)
+    {
+        return false;
+    }
 }
 
 bool Database::Database_Manager::reconnect()

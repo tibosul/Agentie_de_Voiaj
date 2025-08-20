@@ -45,16 +45,20 @@ int main()
         // Create database manager - try multiple server options
         Utils::Logger::info("Initializing database manager...");
         
+        // More intelligent server detection - try most common configurations first
         std::vector<std::string> server_options = {
-            "localhost",
-            "localhost\\SQLEXPRESS",
-            ".\\SQLEXPRESS", 
-            "(LocalDB)\\MSSQLLocalDB",
-            "."
+            "localhost",                    // Standard localhost
+            ".",                           // Local instance
+            ".\\SQLEXPRESS",               // SQL Server Express (most common)
+            "localhost\\SQLEXPRESS",       // SQL Server Express on localhost
+            "(LocalDB)\\MSSQLLocalDB",     // SQL Server LocalDB
+            "localhost\\MSSQLSERVER",      // SQL Server default instance
+            ".\\MSSQLSERVER"               // SQL Server default instance local
         };
         
         std::shared_ptr<Database_Manager> db_manager = nullptr;
         bool connected = false;
+        std::string successful_server;
         
         for (const auto& server : server_options)
         {
@@ -68,13 +72,25 @@ int main()
             
             if (db_manager->connect())
             {
-                Utils::Logger::info("Connected to database server: " + server);
-                connected = true;
-                break;
+                Utils::Logger::info("✅ Connected to database server: " + server);
+                
+                // Check if the database exists
+                if (db_manager->database_exists())
+                {
+                    Utils::Logger::info("✅ Database '" + Config::Database::DEFAULT_DATABASE + "' exists and is accessible");
+                    successful_server = server;
+                    connected = true;
+                    break;
+                }
+                else
+                {
+                    Utils::Logger::warning("⚠️  Connected to server but database '" + Config::Database::DEFAULT_DATABASE + "' doesn't exist");
+                    Utils::Logger::info("💡 Run 'setup_database.bat' to create the database and tables");
+                }
             }
             else
             {
-                Utils::Logger::warning("Database connection failed: " + db_manager->get_last_error());
+                Utils::Logger::warning("❌ Database connection failed for " + server + ": " + db_manager->get_last_error());
             }
         }
         
@@ -94,8 +110,9 @@ int main()
             std::cerr << "  ✅ All server functionality for testing" << std::endl;
             std::cerr << "\n📢 To enable REAL database:" << std::endl;
             std::cerr << "  1. Install SQL Server LocalDB or Express" << std::endl;
-            std::cerr << "  2. Create 'Agentie_de_Voiaj' database" << std::endl;
-            std::cerr << "  3. Restart the server" << std::endl;
+            std::cerr << "  2. Run 'setup_database.bat' to create database and tables" << std::endl;
+                            std::cerr << "  3. Or manually create 'Agentie_de_Voiaj' database" << std::endl;
+            std::cerr << "  4. Restart the server" << std::endl;
             std::cerr << "\n" << std::string(60, '-') << std::endl;
             std::cout << "Press Enter to continue in DEMO MODE or Ctrl+C to exit..." << std::endl;
             std::cin.get();

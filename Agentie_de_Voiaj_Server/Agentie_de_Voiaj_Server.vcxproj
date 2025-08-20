@@ -147,6 +147,7 @@
   <ItemGroup>
     <None Include="sql\data_insertion.sql" />
     <None Include="sql\extra.sql" />
+    <None Include="sql\fresh_database.sql" />
     <None Include="sql\indexes.sql" />
     <None Include="sql\stored_procedures.sql" />
     <None Include="sql\tables.sql" />

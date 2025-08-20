@@ -56,7 +56,11 @@ echo Cleanup completed successfully!
 echo ========================================
 echo.
 echo All build artifacts and temporary files have been removed.
-echo Run build.bat to rebuild the project.
+echo.
+echo Next steps:
+echo 1. Run fresh_database.bat for clean database (optional)
+echo 2. Run setup_database.bat to recreate database
+echo 3. Run build.bat to rebuild projects
 echo.
 pause
 
