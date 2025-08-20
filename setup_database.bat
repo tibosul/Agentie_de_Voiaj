@@ -99,3 +99,4 @@ echo.
 echo The database is now ready for use by the application.
 echo.
 pause
+

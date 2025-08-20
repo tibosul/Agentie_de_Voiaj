@@ -107,3 +107,4 @@ private:
     QString m_last_error;
     QSettings* m_settings = nullptr;
 };
+

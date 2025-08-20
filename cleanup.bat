@@ -59,3 +59,4 @@ echo All build artifacts and temporary files have been removed.
 echo Run build.bat to rebuild the project.
 echo.
 pause
+

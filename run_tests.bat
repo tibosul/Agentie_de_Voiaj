@@ -90,3 +90,4 @@ if %server_test_result% equ 0 if %client_test_result% equ 0 if %integration_test
 
 echo.
 pause
+

@@ -33,3 +33,4 @@ echo.
 echo To stop the server, close the server window or press Ctrl+C in that window.
 echo.
 pause
+

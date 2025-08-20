@@ -463,3 +463,4 @@ int main(int argc, char *argv[]) {
 }
 
 #include "integration_tests.moc"
+

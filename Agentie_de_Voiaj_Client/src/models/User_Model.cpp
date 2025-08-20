@@ -80,7 +80,7 @@ void User_Model::refresh_user_data()
     }
 }
 
-const User_Model::User_Data& User_Model::get_user_data() const
+const User_Data& User_Model::get_user_data() const
 {
     return m_user_data;
 }

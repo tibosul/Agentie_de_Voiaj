@@ -399,3 +399,4 @@ void Offer_Model::load_cached_offers()
     
     qDebug() << "Offer_Model: Loaded" << m_offers.size() << "cached offers";
 }
+

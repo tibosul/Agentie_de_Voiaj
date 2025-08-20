@@ -394,3 +394,4 @@ void Reservation_Model::load_cached_reservations()
     
     qDebug() << "Reservation_Model: Loaded" << m_reservations.size() << "cached reservations";
 }
+

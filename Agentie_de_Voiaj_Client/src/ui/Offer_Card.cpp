@@ -372,15 +372,20 @@ void Offer_Card::update_availability_display()
 {
     if (m_availability_label)
     {
-        if (m_offer.available_seats > 10)
+        int available = m_offer.available_seats();
+        if (available > 10)
         {
             m_availability_label->setText(QString::fromUtf8("✓ Disponibil"));
             m_availability_label->setStyleSheet("color: #28a745; font-size: 11px; font-weight: bold;");
+            m_book_button->setEnabled(true);
+            m_book_button->setText("Rezervă");
         } 
-        else if (m_offer.available_seats > 0)
+        else if (available > 0)
         {
-            m_availability_label->setText(QString::fromUtf8("⚠️ %1 locuri").arg(m_offer.available_seats));
+            m_availability_label->setText(QString::fromUtf8("⚠️ %1 locuri").arg(available));
             m_availability_label->setStyleSheet("color: #ffc107; font-size: 11px; font-weight: bold;");
+            m_book_button->setEnabled(true);
+            m_book_button->setText("Rezervă");
         }
         else
         {

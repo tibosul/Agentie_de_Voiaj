@@ -16,6 +16,15 @@
     <ClInclude Include="include\network\Protocol_Handler.h" />
     <ClInclude Include="include\network\Socket_Server.h" />
     <ClInclude Include="include\utils\utils.h" />
+    <ClInclude Include="include\models\Accommodation_Data.h" />
+    <ClInclude Include="include\models\Accommodation_Type_Data.h" />
+    <ClInclude Include="include\models\All_Data_Structures.h" />
+    <ClInclude Include="include\models\Destination_Data.h" />
+    <ClInclude Include="include\models\Offer_Data.h" />
+    <ClInclude Include="include\models\Reservation_Data.h" />
+    <ClInclude Include="include\models\Reservation_Person_Data.h" />
+    <ClInclude Include="include\models\Transport_Type_Data.h" />
+    <ClInclude Include="include\models\User_Data.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="sql\data_insertion.sql" />

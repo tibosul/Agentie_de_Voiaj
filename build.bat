@@ -59,3 +59,4 @@ echo Server executable: Agentie_de_Voiaj_Server\x64\Debug\Agentie_de_Voiaj_Serve
 echo Client executable: Agentie_de_Voiaj_Client\x64\Debug\Agentie_de_Voiaj_Client.exe
 echo.
 pause
+
