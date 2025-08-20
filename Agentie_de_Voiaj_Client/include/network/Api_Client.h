@@ -46,6 +46,7 @@ public:
 
     void initialize_connection();
     void test_connection();
+    void stop_reconnection();
 
     void login(const QString& username, const QString& password);
     void register_user(const QJsonObject& user_data);

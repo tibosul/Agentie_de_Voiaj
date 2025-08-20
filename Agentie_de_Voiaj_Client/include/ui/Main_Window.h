@@ -40,6 +40,7 @@ private slots:
     void on_about_action();
     void on_settings_action();
     void on_toggle_theme_action();
+    void on_test_connection_action();
 
     void on_tab_changed(int index);
 
@@ -99,6 +100,7 @@ private:
     QAction* m_settings_action;
     QAction* m_toggle_theme_action;
     QAction* m_about_action;
+    QAction* m_test_connection_action;
 
     QStatusBar* m_status_bar;
     QLabel* m_connection_status_label;
