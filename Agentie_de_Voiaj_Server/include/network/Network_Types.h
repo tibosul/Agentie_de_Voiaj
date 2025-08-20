@@ -8,7 +8,8 @@
 #include <windows.h>
 #include <winsock2.h>
 
-#include <nlohmann/json.hpp>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
 #include "config.h"
 #include "utils/utils.h"
 
@@ -84,7 +85,7 @@ namespace SocketNetwork
 	{
 		Message_Type type;
 		std::string raw_message;
-		nlohmann::json json_data; // Store parsed JSON data
+		QJsonObject json_data; // Store parsed JSON data
 		bool is_valid = false;
 		std::string error_message;
 

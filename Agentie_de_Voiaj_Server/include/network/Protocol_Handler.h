@@ -2,7 +2,8 @@
 
 #include <string>
 #include <memory>
-#include <nlohmann/json.hpp>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
 
 #include "network/Network_Types.h"
 #include "database/Database_Manager.h"
@@ -24,7 +25,7 @@ namespace SocketNetwork
 		explicit Protocol_Handler(std::shared_ptr<Database::Database_Manager> db_manager);
 
 		Parsed_Message parse_message(const std::string& json_message);
-		Message_Type get_message_type(const nlohmann::json& json_obj);
+		Message_Type get_message_type(const QJsonObject& json_obj);
 		std::string message_type_to_string(Message_Type type);
 
 		Response process_message(const Parsed_Message& parsed_message, SocketNetwork::Client_Handler* client_handler);
