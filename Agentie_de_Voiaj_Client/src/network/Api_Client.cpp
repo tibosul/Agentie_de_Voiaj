@@ -141,17 +141,20 @@ void Api_Client::initialize_connection()
 {
     qDebug() << "Initializing connection to server...";
     
-    // Set up connection status monitoring
-    connect(this, &Api_Client::connection_status_changed, [this](bool connected) {
-        if (connected) {
-            qDebug() << "Connection established successfully";
-            // Send a test keepalive message to verify communication
-            QTimer::singleShot(1000, this, &Api_Client::test_connection); // Wait 1 second before test
-        } else {
-            qDebug() << "Connection lost or failed";
-        }
-    }, Qt::UniqueConnection); // Prevent multiple connections
-    
+
+    // Remove lambda connection, use direct signal-slot or connect in Main_Window
+    // connect(this, &Api_Client::connection_status_changed, [this](bool connected) {
+    //     if (connected) {
+    //         qDebug() << "Connection established successfully";
+    //         QTimer::singleShot(1000, this, &Api_Client::test_connection);
+    //     } else {
+    //         qDebug() << "Connection lost or failed";
+    //     }
+    // }, Qt::UniqueConnection);
+
+    // Instead, just log here and let Main_Window handle connection_status_changed
+    qDebug() << "Api_Client::initialize_connection: connection_status_changed will be handled in Main_Window.";
+
     // Attempt initial connection (non-blocking)
     QTimer::singleShot(500, this, &Api_Client::connect_to_server); // Small delay to allow UI to initialize
 }
