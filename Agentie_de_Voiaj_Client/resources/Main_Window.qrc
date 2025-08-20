@@ -1,4 +1,8 @@
 <RCC>
     <qresource prefix="Main_Window">
     </qresource>
+    <qresource prefix="styles">
+        <file>styles/light_theme.qss</file>
+        <file>styles/dark_theme.qss</file>
+    </qresource>
 </RCC>

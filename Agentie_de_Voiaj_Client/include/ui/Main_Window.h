@@ -18,6 +18,7 @@
 #include "models/Destination_Model.h"
 #include "models/Offer_Model.h"
 #include "models/Reservation_Model.h"
+#include "utils/Style_Manager.h"
 class QPropertyAnimation;
 
 QT_BEGIN_NAMESPACE
@@ -118,6 +119,9 @@ private:
     std::unique_ptr<Destination_Model> m_destination_model;
     std::unique_ptr<Offer_Model> m_offer_model;
     std::unique_ptr<Reservation_Model> m_reservation_model;
+    
+    // Style Management
+    std::unique_ptr<Style_Manager> m_style_manager;
 
     // Offers tab UI references
     QWidget* m_offers_container;

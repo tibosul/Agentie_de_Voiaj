@@ -53,6 +53,7 @@ Main_Window::Main_Window(QWidget *parent)
     , m_destination_model(std::make_unique<Destination_Model>(this))
     , m_offer_model(std::make_unique<Offer_Model>(this))
     , m_reservation_model(std::make_unique<Reservation_Model>(this))
+    , m_style_manager(std::make_unique<Style_Manager>())
     , m_offers_container(nullptr)
     , m_offers_container_layout(nullptr)
     , m_offers_loading_label(nullptr)
@@ -992,8 +993,13 @@ void Main_Window::on_toggle_theme_action()
     m_current_theme = (m_current_theme == "light") ? "dark" : "light";
     m_theme_toggle_button->setText((m_current_theme == "light") ? "🌙" : "☀️");
     
-    // Apply theme (StyleManager will be used here in future)
-    QMessageBox::information(this, "Temă", QString("Comutare la tema: %1").arg(m_current_theme));
+    // Apply theme using Style_Manager
+    if (m_style_manager) {
+        m_style_manager->apply_theme(m_current_theme);
+        qDebug() << "Applied theme:" << m_current_theme;
+    } else {
+        qWarning() << "Style_Manager not available";
+    }
 }
 
 void Main_Window::on_test_connection_action()
