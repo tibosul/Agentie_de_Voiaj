@@ -11,22 +11,16 @@
 #include <sstream>
 #include <iomanip>
 
-// Winsock headers must come before windows.h to avoid conflicts
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <winsock2.h>
-
-// SQL Server headers - IMPORTANT ORDER!
-#include <windows.h>
-#include <sql.h>
-#include <sqlext.h>
-#include <sqltypes.h>
+// Qt SQL headers
+#include <QtSql/QSqlDatabase>
+#include <QtSql/QSqlQuery>
+#include <QtSql/QSqlError>
+#include <QtSql/QSqlRecord>
+#include <QtCore/QString>
+#include <QtCore/QVariant>
 
 // Utils header
 #include "utils/utils.h"
-
-#pragma comment(lib, "odbc32.lib")
 
 // Data structures - included from separate header files
 #include "models/All_Data_Structures.h"
@@ -69,9 +63,8 @@ namespace Database
 	class Database_Manager
 	{
 	private:
-		SQLHENV henv;
-		SQLHDBC hdbc;
-		SQLHSTMT hstmt;
+		QSqlDatabase db;
+		QString connection_name;
 
 		std::string server;
 		std::string database;
@@ -223,10 +216,10 @@ namespace Database
 		bool initialize_handles();
 		void cleanup_handles();
 		std::string build_connection_string() const;
-		Query_Result process_select_result();
-		Query_Result process_execution_result();
-		bool handle_sql_error(SQLSMALLINT handle_type, SQLHANDLE handle);
-		std::string get_sql_error(SQLSMALLINT handle_type, SQLHANDLE handle);
+		Query_Result process_select_result(QSqlQuery& query);
+		Query_Result process_execution_result(QSqlQuery& query);
+		bool handle_sql_error(const QSqlError& error);
+		std::string get_sql_error(const QSqlError& error);
 		bool retry_operation(std::function<bool()> operation, int max_attempts = MAX_RETRIES_ATTEMPTS);
 		
 		// Table creation SQL

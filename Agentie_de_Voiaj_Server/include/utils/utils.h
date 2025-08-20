@@ -5,7 +5,8 @@
 #include <sstream>
 #include <iomanip>
 #include <exception>
-#include <nlohmann/json.hpp>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
 
 namespace Utils
 {

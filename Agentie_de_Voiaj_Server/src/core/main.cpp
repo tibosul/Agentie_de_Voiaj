@@ -6,6 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <csignal>
+#include <QtCore/QCoreApplication>
 
 using namespace Database;
 using namespace SocketNetwork;
@@ -24,8 +25,12 @@ void signal_handler(int signal)
     exit(0);
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+    // Initialize Qt application
+    QCoreApplication app(argc, argv);
+    QCoreApplication::setApplicationName("Agentie de Voiaj Server");
+    QCoreApplication::setApplicationVersion(Config::Application::VERSION.c_str());
     // Initialize logging system first
     Utils::Logger::initialize_logging();
     

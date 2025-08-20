@@ -7,7 +7,7 @@ using namespace Utils::Exceptions;
 
 // Constructor
 Database::Database_Manager::Database_Manager() 
-    : henv(SQL_NULL_HENV), hdbc(SQL_NULL_HDBC), hstmt(SQL_NULL_HSTMT), is_connected(false), is_demo_mode(false)
+    : is_connected(false), is_demo_mode(false)
 {
     initialize_handles();
 }
@@ -15,7 +15,7 @@ Database::Database_Manager::Database_Manager()
 Database::Database_Manager::Database_Manager(const std::string& server, const std::string& database, 
     const std::string& username, const std::string& password)
     : server(server), database(database), username(username), password(password),
-    henv(SQL_NULL_HENV), hdbc(SQL_NULL_HDBC), hstmt(SQL_NULL_HSTMT), is_connected(false), is_demo_mode(false)
+    is_connected(false), is_demo_mode(false)
 {
     // Check if this is a dummy instance (demo mode)
     if (server == "dummy" && database == "dummy")
@@ -36,53 +36,36 @@ Database::Database_Manager::~Database_Manager()
     cleanup_handles();
 }
 
-// Initialize ODBC handles
+// Initialize Qt SQL database connection
 bool Database::Database_Manager::initialize_handles()
 {
-    SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
-    if (!SQL_SUCCEEDED(ret))
+    // Generate unique connection name
+    static int connection_counter = 0;
+    connection_name = QString("AgentieVoiajConnection_%1").arg(++connection_counter);
+    
+    // Add SQL Server driver
+    db = QSqlDatabase::addDatabase("QODBC", connection_name);
+    
+    if (!db.isValid())
     {
-        log_error("initialize_handles", "Failed to allocate environment handle");
+        log_error("initialize_handles", "Failed to add ODBC database driver");
         return false;
     }
-
-    ret = SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
-    if (!SQL_SUCCEEDED(ret))
-    {
-        log_error("initialize_handles", "Failed to set ODBC version");
-        return false;
-    }
-
-    ret = SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
-    if (!SQL_SUCCEEDED(ret))
-    {
-        log_error("initialize_handles", "Failed to allocate connection handle");
-        return false;
-    }
-
+    
     return true;
 }
 
-// Cleanup ODBC handles
+// Cleanup Qt SQL database connection
 void Database::Database_Manager::cleanup_handles()
 {
-    if (hstmt != SQL_NULL_HSTMT)
+    if (db.isOpen())
     {
-        SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-        hstmt = SQL_NULL_HSTMT;
+        db.close();
     }
-
-    if (hdbc != SQL_NULL_HDBC)
+    
+    if (QSqlDatabase::contains(connection_name))
     {
-        SQLDisconnect(hdbc);
-        SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
-        hdbc = SQL_NULL_HDBC;
-    }
-
-    if (henv != SQL_NULL_HENV)
-    {
-        SQLFreeHandle(SQL_HANDLE_ENV, henv);
-        henv = SQL_NULL_HENV;
+        QSqlDatabase::removeDatabase(connection_name);
     }
 }
 
@@ -128,13 +111,10 @@ bool Database::Database_Manager::connect()
         return false;
     }
 
-    std::vector<char> conn_str(connection_string.begin(), connection_string.end());
-    conn_str.push_back('\0');
-    SQLRETURN ret = SQLDriverConnectA(hdbc, NULL, 
-        reinterpret_cast<SQLCHAR*>(conn_str.data()), SQL_NTS,
-        NULL, 0, NULL, SQL_DRIVER_COMPLETE);
+    // Set connection string for Qt SQL
+    db.setDatabaseName(QString::fromStdString(connection_string));
 
-    if (SQL_SUCCEEDED(ret))
+    if (db.open())
     {
         is_connected = true;
         Utils::Logger::info("Database connection successful to: " + server + "\\" + database);
@@ -142,10 +122,11 @@ bool Database::Database_Manager::connect()
     }
     else
     {
-        std::string error = get_sql_error(SQL_HANDLE_DBC, hdbc);
-        std::string detailed_error = "Connection failed to " + server + "\\" + database + ": " + error;
+        QSqlError error = db.lastError();
+        std::string error_msg = get_sql_error(error);
+        std::string detailed_error = "Connection failed to " + server + "\\" + database + ": " + error_msg;
         Utils::Logger::error(detailed_error);
-        throw DatabaseException(detailed_error, WSAGetLastError());
+        throw DatabaseException(detailed_error, error.nativeErrorCode().toInt());
     }
 }
 
@@ -165,18 +146,15 @@ bool Database::Database_Manager::disconnect()
         return true;
     }
 
-    SQLRETURN ret = SQLDisconnect(hdbc);
+    db.close();
     is_connected = false;
     
-    return SQL_SUCCEEDED(ret);
+    return !db.isOpen();
 }
 
 bool Database::Database_Manager::is_connection_alive() const
 {
-    if (!is_connected) return false;
-    
-    SQLRETURN ret = SQLGetConnectAttr(hdbc, SQL_ATTR_CONNECTION_DEAD, NULL, 0, NULL);
-    return SQL_SUCCEEDED(ret);
+    return is_connected && db.isOpen() && db.isValid();
 }
 
 bool Database::Database_Manager::database_exists() const
@@ -186,16 +164,9 @@ bool Database::Database_Manager::database_exists() const
     try
     {
         // Try to query the database to see if it exists
-        SQLHSTMT temp_stmt;
-        SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &temp_stmt);
-        if (!SQL_SUCCEEDED(ret)) return false;
-        
-        // Simple query to test database access
-        ret = SQLExecDirectA(temp_stmt, (SQLCHAR*)"SELECT 1", SQL_NTS);
-        bool exists = SQL_SUCCEEDED(ret);
-        
-        SQLFreeHandle(SQL_HANDLE_STMT, temp_stmt);
-        return exists;
+        QSqlQuery query(db);
+        bool success = query.exec("SELECT 1");
+        return success;
     }
     catch (...)
     {
@@ -234,24 +205,13 @@ Database::Query_Result Database::Database_Manager::execute_query(const std::stri
         return Query_Result(Result_Type::ERROR_CONNECTION, "Not connected to database");
     }
 
-    if (hstmt != SQL_NULL_HSTMT)
+    QSqlQuery sqlQuery(db);
+    
+    if (!sqlQuery.exec(QString::fromStdString(query)))
     {
-        SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-    }
-
-    SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
-    if (!SQL_SUCCEEDED(ret))
-    {
-        return Query_Result(Result_Type::ERROR_EXECUTION, "Failed to allocate statement handle");
-    }
-
-    std::vector<char> query_str(query.begin(), query.end());
-    query_str.push_back('\0');
-    ret = SQLExecDirectA(hstmt, reinterpret_cast<SQLCHAR*>(query_str.data()), SQL_NTS);
-    if (!SQL_SUCCEEDED(ret))
-    {
-        std::string error = get_sql_error(SQL_HANDLE_STMT, hstmt);
-        throw DatabaseException("Query execution failed: " + error, ret);
+        QSqlError error = sqlQuery.lastError();
+        std::string error_msg = get_sql_error(error);
+        throw DatabaseException("Query execution failed: " + error_msg, error.nativeErrorCode().toInt());
     }
 
     // Check if this is a SELECT query
@@ -260,11 +220,11 @@ Database::Query_Result Database::Database_Manager::execute_query(const std::stri
     
     if (upper_query.find("SELECT") == 0)
     {
-        return process_select_result();
+        return process_select_result(sqlQuery);
     }
     else
     {
-        return process_execution_result();
+        return process_execution_result(sqlQuery);
     }
 }
 
@@ -289,105 +249,79 @@ Database::Query_Result Database::Database_Manager::execute_delete(const std::str
 }
 
 // Process SELECT result
-Database::Query_Result Database::Database_Manager::process_select_result()
+Database::Query_Result Database::Database_Manager::process_select_result(QSqlQuery& query)
 {
     Query_Result result;
-    SQLSMALLINT columns;
-    SQLRETURN ret = SQLNumResultCols(hstmt, &columns);
     
-    if (!SQL_SUCCEEDED(ret))
+    if (!query.isActive())
     {
-        return Query_Result(Result_Type::ERROR_EXECUTION, "Failed to get column count");
+        return Query_Result(Result_Type::ERROR_EXECUTION, "Query is not active");
     }
-
-    // Get column names
-    std::vector<std::string> column_names;
-    for (SQLSMALLINT i = 1; i <= columns; i++)
-    {
-        SQLCHAR column_name[256];
-        SQLSMALLINT name_len;
-        ret = SQLColAttribute(hstmt, i, SQL_DESC_NAME, column_name, sizeof(column_name), &name_len, NULL);
-        if (SQL_SUCCEEDED(ret))
-        {
-            column_names.push_back(std::string(reinterpret_cast<char*>(column_name), name_len));
-        }
-    }
+    
+    QSqlRecord record = query.record();
+    int columns = record.count();
 
     // Fetch rows
-    while (SQLFetch(hstmt) == SQL_SUCCESS)
+    while (query.next())
     {
         std::map<std::string, std::string> row;
         
-        for (SQLSMALLINT i = 1; i <= columns; i++)
+        for (int i = 0; i < columns; i++)
         {
-            SQLCHAR data[1024];
-            SQLLEN indicator;
-            ret = SQLGetData(hstmt, i, SQL_C_CHAR, data, sizeof(data), &indicator);
-            
-            std::string value;
-            if (SQL_SUCCEEDED(ret) && indicator != SQL_NULL_DATA)
-            {
-                value = std::string(reinterpret_cast<char*>(data));
-            }
-            
-            if (i - 1 < column_names.size())
-            {
-                row[column_names[i - 1]] = value;
-            }
+            QString column_name = record.fieldName(i);
+            QVariant value = query.value(i);
+            row[column_name.toStdString()] = value.toString().toStdString();
         }
+        
         result.data.push_back(row);
     }
-
+    
+    result.type = Result_Type::SUCCESS;
+    result.affected_rows = result.data.size();
     return result;
 }
 
 // Process non-SELECT result
-Database::Query_Result Database::Database_Manager::process_execution_result()
+Database::Query_Result Database::Database_Manager::process_execution_result(QSqlQuery& query)
 {
     Database::Query_Result result;
-    SQLLEN affected_rows;
-    SQLRETURN ret = SQLRowCount(hstmt, &affected_rows);
-    
-    if (SQL_SUCCEEDED(ret))
-    {
-        result.affected_rows = static_cast<int>(affected_rows);
-    }
-    
+    result.affected_rows = query.numRowsAffected();
+    result.type = Result_Type::SUCCESS;
     return result;
 }
 
 // Error handling
-bool Database::Database_Manager::handle_sql_error(SQLSMALLINT handle_type, SQLHANDLE handle)
+bool Database::Database_Manager::handle_sql_error(const QSqlError& error)
 {
-    std::string error = get_sql_error(handle_type, handle);
-    log_error("SQL Error", error);
+    std::string error_msg = get_sql_error(error);
+    log_error("SQL Error", error_msg);
     return false;
 }
 
-std::string Database::Database_Manager::get_sql_error(SQLSMALLINT handle_type, SQLHANDLE handle)
+std::string Database::Database_Manager::get_sql_error(const QSqlError& error)
 {
-    SQLCHAR sql_state[6];
-    SQLCHAR error_msg[1024];
-    SQLINTEGER native_error;
-    SQLSMALLINT msg_len;
-    
-    SQLRETURN ret = SQLGetDiagRecA(handle_type, handle, 1, sql_state, &native_error,
-        error_msg, sizeof(error_msg), &msg_len);
-    
-    if (SQL_SUCCEEDED(ret))
+    if (!error.isValid())
     {
-        std::stringstream ss;
-        ss << "SQL State: " << reinterpret_cast<char*>(sql_state) 
-           << ", Error: " << reinterpret_cast<char*>(error_msg);
-        return ss.str();
+        return "No error";
     }
     
-    return "Unknown SQL error";
+    std::stringstream ss;
+    ss << "Database Error: " << error.databaseText().toStdString();
+    if (!error.driverText().isEmpty())
+    {
+        ss << ", Driver Error: " << error.driverText().toStdString();
+    }
+    if (!error.nativeErrorCode().isEmpty())
+    {
+        ss << ", Native Error Code: " << error.nativeErrorCode().toStdString();
+    }
+    
+    return ss.str();
 }
 
 std::string Database::Database_Manager::get_last_error()
 {
-    return get_sql_error(SQL_HANDLE_STMT, hstmt);
+    return get_sql_error(db.lastError());
 }
 
 void Database::Database_Manager::log_error(const std::string& operation, const std::string& error)

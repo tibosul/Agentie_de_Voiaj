@@ -3,21 +3,18 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <thread>
 #include <mutex>
 #include <atomic>
 #include <functional>
 #include <map>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#include <QtNetwork/QTcpServer>
+#include <QtNetwork/QTcpSocket>
+#include <QtCore/QObject>
+#include <QtCore/QTimer>
 
 #include "network/Network_Types.h"
 #include "database/Database_Manager.h"
-
-#pragma comment(lib, "ws2_32.lib")
 
 // Forward declarations
 class Protocol_Handler;
@@ -29,20 +26,21 @@ namespace SocketNetwork
 
 namespace SocketNetwork
 {
-	class Socket_Server
+	class Socket_Server : public QObject
 	{
+		Q_OBJECT
+		
 	private:
-		SocketRAII server_socket;
+		QTcpServer* tcp_server;
 		Server_Config config;
 		std::shared_ptr<Database::Database_Manager> db_manager;
 		std::unique_ptr<Protocol_Handler> protocol_handler;
 
 		std::atomic<bool> is_running;
 		std::atomic<bool> is_initialized;
-		std::thread accept_thread;
-		std::thread cleanup_thread;
+		QTimer* cleanup_timer;
 
-		std::map<SOCKET, std::shared_ptr<Client_Handler>> active_clients;
+		std::map<int, std::shared_ptr<Client_Handler>> active_clients;
 		std::mutex clients_mutex;
 		std::mutex protocol_handler_mutex;
 		std::atomic<int> client_count;
@@ -72,11 +70,11 @@ namespace SocketNetwork
 		int get_active_client_count() const;
 		std::vector<Client_Info> get_active_clients() const;
 
-		void disconnect_client(SOCKET client_socket);
+		void disconnect_client(int client_socket_descriptor);
 		void disconnect_all_clients();
 		void broadcast_message(const std::string& message);
 		void send_message_to_user(int user_id, const std::string& message);
-		void send_message_to_client(SOCKET client_socket, const std::string& message);
+		void send_message_to_client(int client_socket_descriptor, const std::string& message);
 
 		Server_Stats get_server_stats() const;
 		void reset_server_stats();
@@ -90,21 +88,23 @@ namespace SocketNetwork
 	friend class Client_Handler;
 
 	private:
-		bool initialize_winsock();
-		void cleanup_winsock();
-		bool create_server_socket();
+		bool initialize_qt_network();
+		void cleanup_qt_network();
+		bool create_server();
 		bool bind_and_listen();
-		void accept_connections_loop();
 		void cleanup_disconnected_clients();
 
-		void handle_new_client(SOCKET client_socket, const std::string& client_address);
-		void remove_client(SOCKET client_socket);
-		Client_Info* get_client_info(SOCKET client_socket);
+		void handle_new_client(QTcpSocket* client_socket);
+		void remove_client(int client_socket_descriptor);
+		Client_Info* get_client_info(int client_socket_descriptor);
 
-		std::string get_socket_address(SOCKET socket) const;
-		bool set_socket_options(SOCKET socket);
+		std::string get_socket_address(QTcpSocket* socket) const;
 		std::string get_uptime() const;
 		void log_server_event(const std::string& message);
 		void log_client_event(const Client_Info& client_info, const std::string& message);
+
+	private slots:
+		void on_new_connection();
+		void on_cleanup_timer();
 	};
 }

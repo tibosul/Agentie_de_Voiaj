@@ -26,7 +26,22 @@ SocketNetwork::Parsed_Message SocketNetwork::Protocol_Handler::parse_message(con
     
     try 
     {
-        nlohmann::json msg_json = nlohmann::json::parse(json_message);
+        QJsonParseError parse_error;
+        QJsonDocument doc = QJsonDocument::fromJson(QString::fromStdString(json_message).toUtf8(), &parse_error);
+        
+        if (parse_error.error != QJsonParseError::NoError)
+        {
+            parsed.error_message = "JSON parse error: " + parse_error.errorString().toStdString();
+            return parsed;
+        }
+        
+        if (!doc.isObject())
+        {
+            parsed.error_message = "JSON root must be an object";
+            return parsed;
+        }
+        
+        QJsonObject msg_json = doc.object();
         parsed.json_data = msg_json;
         
         // Extract command/type from JSON
@@ -41,18 +56,13 @@ SocketNetwork::Parsed_Message SocketNetwork::Protocol_Handler::parse_message(con
         if (parsed.type == Message_Type::UNKNOWN)
         {
             std::string command = msg_json.contains("type") ? 
-                msg_json["type"].get<std::string>() : 
-                msg_json["command"].get<std::string>();
+                msg_json["type"].toString().toStdString() : 
+                msg_json["command"].toString().toStdString();
             parsed.error_message = "Unknown command: " + command;
             return parsed;
         }
         
         parsed.is_valid = true;
-        return parsed;
-    }
-    catch (const nlohmann::json::parse_error& e)
-    {
-        parsed.error_message = "JSON parse error: " + std::string(e.what());
         return parsed;
     }
     catch (const std::exception& e)
@@ -62,18 +72,18 @@ SocketNetwork::Parsed_Message SocketNetwork::Protocol_Handler::parse_message(con
     }
 }
 
-SocketNetwork::Message_Type SocketNetwork::Protocol_Handler::get_message_type(const nlohmann::json& json_obj)
+SocketNetwork::Message_Type SocketNetwork::Protocol_Handler::get_message_type(const QJsonObject& json_obj)
 {
     try
     {
         std::string command;
         if (json_obj.contains("type"))
         {
-            command = json_obj["type"].get<std::string>();
+            command = json_obj["type"].toString().toStdString();
         }
         else if (json_obj.contains("command"))
         {
-            command = json_obj["command"].get<std::string>();
+            command = json_obj["command"].toString().toStdString();
         }
         else
         {

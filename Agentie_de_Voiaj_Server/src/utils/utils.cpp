@@ -615,62 +615,82 @@ namespace Utils
 	{
 		bool is_valid_json(const std::string& json_str)
 		{
-			try
-			{
-				[[maybe_unused]] auto parsed = nlohmann::json::parse(json_str);
-				return true;
-			}
-			catch (const nlohmann::json::parse_error&)
-			{
-				return false;
-			}
+			QJsonParseError parse_error;
+			QJsonDocument::fromJson(QString::fromStdString(json_str).toUtf8(), &parse_error);
+			return parse_error.error == QJsonParseError::NoError;
 		}
 
 		std::string escape_json(const std::string& input)
 		{
-			return nlohmann::json(input).dump();
+			QJsonObject obj;
+			obj["temp"] = QString::fromStdString(input);
+			QJsonDocument doc(obj);
+			QString json_str = doc.toJson(QJsonDocument::Compact);
+			// Extract the escaped value from {"temp":"escaped_value"}
+			int start = json_str.indexOf("\"") + 1;
+			int end = json_str.lastIndexOf("\"");
+			if (start > 0 && end > start) {
+				return json_str.mid(start, end - start).toStdString();
+			}
+			return input;
 		}
 
 		std::string create_error_response(const std::string& error_message, int error_code)
     	{
-			nlohmann::json response;
+			QJsonObject response;
 			response["success"] = false;
-			response["message"] = error_message;
+			response["message"] = QString::fromStdString(error_message);
 			if (error_code != -1)
 				response["error_code"] = error_code;
-			return response.dump();
+			
+			QJsonDocument doc(response);
+			return doc.toJson(QJsonDocument::Compact).toStdString();
     	}
 
 		std::string create_success_response(const std::string& data, const std::string& message)
    		{
-			nlohmann::json response;
+			QJsonObject response;
 			response["success"] = true;
-			response["message"] = message.empty() ? "Success" : message;
+			response["message"] = QString::fromStdString(message.empty() ? "Success" : message);
 			
 			if (!data.empty())
 			{
-				try
+				// Try to parse data as JSON, if it fails treat as string
+				QJsonParseError parse_error;
+				QJsonDocument data_doc = QJsonDocument::fromJson(QString::fromStdString(data).toUtf8(), &parse_error);
+				
+				if (parse_error.error == QJsonParseError::NoError)
 				{
-					// Try to parse data as JSON, if it fails treat as string
-					response["data"] = nlohmann::json::parse(data);
+					if (data_doc.isObject())
+						response["data"] = data_doc.object();
+					else if (data_doc.isArray())
+						response["data"] = data_doc.array();
+					else
+						response["data"] = QString::fromStdString(data);
 				}
-				catch (const nlohmann::json::parse_error&)
+				else
 				{
-					response["data"] = data;
+					response["data"] = QString::fromStdString(data);
 				}
 			}
 			else
 			{
-				response["data"] = nlohmann::json::object();
+				response["data"] = QJsonObject();
 			}
 			
-			return response.dump();
+			QJsonDocument doc(response);
+			return doc.toJson(QJsonDocument::Compact).toStdString();
     	}
 
 		std::string format_json(const std::string& json_str)
 		{
-			auto json_obj = nlohmann::json::parse(json_str);
-			return json_obj.dump(4); // Pretty print with 4 spaces
+			QJsonParseError parse_error;
+			QJsonDocument doc = QJsonDocument::fromJson(QString::fromStdString(json_str).toUtf8(), &parse_error);
+			if (parse_error.error == QJsonParseError::NoError)
+			{
+				return doc.toJson(QJsonDocument::Indented).toStdString();
+			}
+			return json_str; // Return original if parsing fails
 		}
 	}
 
