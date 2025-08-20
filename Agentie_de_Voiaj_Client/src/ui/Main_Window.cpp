@@ -5,6 +5,7 @@
 #include "models/Destination_Model.h"
 #include "models/Offer_Model.h"
 #include "models/Reservation_Model.h"
+#include "core/Application.h"
 #include "config.h"
 
 #include <QApplication>
@@ -53,7 +54,6 @@ Main_Window::Main_Window(QWidget *parent)
     , m_destination_model(std::make_unique<Destination_Model>(this))
     , m_offer_model(std::make_unique<Offer_Model>(this))
     , m_reservation_model(std::make_unique<Reservation_Model>(this))
-    , m_style_manager(std::make_unique<Style_Manager>())
     , m_offers_container(nullptr)
     , m_offers_container_layout(nullptr)
     , m_offers_loading_label(nullptr)
@@ -81,6 +81,14 @@ Main_Window::Main_Window(QWidget *parent)
     setup_menu_bar();
     setup_status_bar();
     setup_connections();
+    
+    // Initialize theme state
+    Application_Manager* app = Application_Manager::instance();
+    if (app)
+    {
+        m_current_theme = app->get_current_theme();
+        m_theme_toggle_button->setText((m_current_theme == "light") ? "🌙" : "☀️");
+    }
     
     // Initialize API client connection
     Api_Client::instance().initialize_connection();
@@ -989,16 +997,18 @@ void Main_Window::on_settings_action()
 
 void Main_Window::on_toggle_theme_action()
 {
-    // Toggle between light and dark theme
-    m_current_theme = (m_current_theme == "light") ? "dark" : "light";
-    m_theme_toggle_button->setText((m_current_theme == "light") ? "🌙" : "☀️");
-    
-    // Apply theme using Style_Manager
-    if (m_style_manager) {
-        m_style_manager->apply_theme(m_current_theme);
-        qDebug() << "Applied theme:" << m_current_theme;
-    } else {
-        qWarning() << "Style_Manager not available";
+    // Get the application manager and toggle theme
+    Application_Manager* app = Application_Manager::instance();
+    if (app)
+    {
+        app->toggle_theme();
+        m_current_theme = app->get_current_theme();
+        m_theme_toggle_button->setText((m_current_theme == "light") ? "🌙" : "☀️");
+        qDebug() << "Theme toggled to:" << m_current_theme;
+    }
+    else
+    {
+        qWarning() << "Application_Manager not available for theme toggle";
     }
 }
 
