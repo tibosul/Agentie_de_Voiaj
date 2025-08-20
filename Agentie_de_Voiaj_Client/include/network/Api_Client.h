@@ -44,6 +44,7 @@ public:
     void set_auth_token(const QString& token);
     void set_timeout(int timeout_ms);
 
+    void initialize_connection();
     void test_connection();
 
     void login(const QString& username, const QString& password);
@@ -93,6 +94,7 @@ private slots:
     void on_socket_ready_read();
     void on_socket_error(QAbstractSocket::SocketError error);
     void on_request_timeout();
+    void attempt_reconnection();
 
 private:
     explicit Api_Client(QObject* parent = nullptr);
@@ -122,6 +124,7 @@ private:
 
     std::unique_ptr<QTcpSocket> m_socket;
     std::unique_ptr<QTimer> m_timeout_timer;
+    std::unique_ptr<QTimer> m_reconnect_timer;
     mutable QMutex m_mutex;
 
     QString m_server_host;

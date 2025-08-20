@@ -1,5 +1,6 @@
 #include "ui/Main_Window.h"
 #include "ui/Login_Window.h"
+#include "network/Api_Client.h"
 #include "models/User_Model.h"
 #include "models/Destination_Model.h"
 #include "models/Offer_Model.h"
@@ -78,6 +79,9 @@ Main_Window::Main_Window(QWidget *parent)
     setup_menu_bar();
     setup_status_bar();
     setup_connections();
+    
+    // Initialize API client connection
+    Api_Client::instance().initialize_connection();
     
     // Initialize with login prompt
     show_login_prompt();
@@ -914,6 +918,25 @@ void Main_Window::setup_connections()
     connect(m_reservation_model.get(), &Reservation_Model::error_occurred,
             [this](const QString& error) {
                 QMessageBox::warning(this, "Eroare Rezervări", error);
+            });
+    
+    // API Client connection status monitoring
+    connect(&Api_Client::instance(), &Api_Client::connection_status_changed,
+            [this](bool connected) {
+                if (m_connection_status_label) {
+                    m_connection_status_label->setText(connected ? "Conectat" : "Deconectat");
+                }
+                qDebug() << "Connection status changed:" << (connected ? "Connected" : "Disconnected");
+            });
+    
+    connect(&Api_Client::instance(), &Api_Client::network_error,
+            [this](const QString& error) {
+                if (m_connection_status_label) {
+                    m_connection_status_label->setText("Eroare conexiune");
+                }
+                qDebug() << "Network error:" << error;
+                QMessageBox::warning(this, "Eroare de rețea", 
+                    QString("Eroare de conexiune la server: %1").arg(error));
             });
 }
 
