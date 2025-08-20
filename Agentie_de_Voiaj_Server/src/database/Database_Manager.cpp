@@ -942,7 +942,7 @@ Database::Query_Result Database::Database_Manager::search_offers(const std::stri
     return execute_select(query.str());
 }
 
-Database::Query_Result Database::Database_Manager::add_offer(const Trip_Data& offer)
+Database::Query_Result Database::Database_Manager::add_offer(const Offer_Data& offer)
 {
     std::stringstream query;
     query << "INSERT INTO Offers (Name, Destination_ID, Accommodation_ID, Types_of_Transport_ID, "
@@ -965,7 +965,7 @@ Database::Query_Result Database::Database_Manager::add_offer(const Trip_Data& of
     return execute_insert(query.str());
 }
 
-Database::Query_Result Database::Database_Manager::update_offer(const Trip_Data& offer)
+Database::Query_Result Database::Database_Manager::update_offer(const Offer_Data& offer)
 {
     std::stringstream query;
     query << "UPDATE Offers SET "
