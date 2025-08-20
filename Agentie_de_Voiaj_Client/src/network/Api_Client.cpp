@@ -14,6 +14,7 @@ Api_Client::Api_Client(QObject* parent)
     : QObject(parent)
     , m_socket(std::make_unique<QTcpSocket>(this))
     , m_timeout_timer(std::make_unique<QTimer>(this))
+    , m_reconnect_timer(std::make_unique<QTimer>(this))
     , m_server_host(Config::Server::DEFAULT_HOST)
     , m_server_port(Config::Server::DEFAULT_PORT)
     , m_timeout_ms(DEFAULT_TIMEOUT_MS)
@@ -24,6 +25,12 @@ Api_Client::Api_Client(QObject* parent)
     m_timeout_timer->setSingleShot(true);
     connect(m_timeout_timer.get(), &QTimer::timeout, 
             this, &Api_Client::on_request_timeout);
+    
+    // Setup reconnection timer
+    m_reconnect_timer->setSingleShot(true);
+    m_reconnect_timer->setInterval(5000); // Retry every 5 seconds
+    connect(m_reconnect_timer.get(), &QTimer::timeout, 
+            this, &Api_Client::attempt_reconnection);
     
     // Setup socket signals
     connect(m_socket.get(), &QTcpSocket::connected,
@@ -117,6 +124,9 @@ void Api_Client::connect_to_server()
 
 void Api_Client::disconnect_from_server()
 {
+    // Stop reconnection attempts since this is intentional
+    stop_reconnection();
+    
     if (m_socket->state() == QAbstractSocket::ConnectedState)
     {
         m_socket->disconnectFromHost();
@@ -127,12 +137,44 @@ void Api_Client::disconnect_from_server()
     }
 }
 
+void Api_Client::initialize_connection()
+{
+    qDebug() << "Initializing connection to server...";
+    
+    // Set up connection status monitoring
+    connect(this, &Api_Client::connection_status_changed, [this](bool connected) {
+        if (connected) {
+            qDebug() << "Connection established successfully";
+            // Send a test keepalive message to verify communication
+            QTimer::singleShot(1000, this, &Api_Client::test_connection); // Wait 1 second before test
+        } else {
+            qDebug() << "Connection lost or failed";
+        }
+    }, Qt::UniqueConnection); // Prevent multiple connections
+    
+    // Attempt initial connection (non-blocking)
+    QTimer::singleShot(500, this, &Api_Client::connect_to_server); // Small delay to allow UI to initialize
+}
+
 void Api_Client::test_connection()
 {
     QJsonObject testData;
     testData["type"] = "KEEPALIVE";
     
-    send_request(Request_Type::Login, testData);
+    // Don't use Request_Type::Login for keepalive - this is a protocol keepalive
+    if (is_connected()) {
+        send_json_message(testData);
+    } else {
+        qDebug() << "Cannot test connection - not connected to server";
+    }
+}
+
+void Api_Client::stop_reconnection()
+{
+    if (m_reconnect_timer->isActive()) {
+        qDebug() << "Stopping reconnection attempts";
+        m_reconnect_timer->stop();
+    }
 }
 
 void Api_Client::login(const QString& username, const QString& password)
@@ -468,6 +510,9 @@ void Api_Client::on_socket_connected()
 {
     qDebug() << "Socket connected to server";
     
+    // Stop reconnection attempts
+    m_reconnect_timer->stop();
+    
     std::optional<Pending_Request> pending;
     {
         QMutexLocker locker(&m_mutex);
@@ -499,6 +544,33 @@ void Api_Client::on_socket_disconnected()
     
     m_timeout_timer->stop();
     emit connection_status_changed(false);
+    
+    // Start reconnection attempts only if this wasn't an intentional disconnect
+    if (m_socket->state() != QAbstractSocket::UnconnectedState || m_socket->error() != QAbstractSocket::UnknownSocketError) {
+        if (!m_reconnect_timer->isActive()) {
+            qDebug() << "Starting reconnection attempts...";
+            m_reconnect_timer->start();
+        }
+    }
+}
+
+void Api_Client::attempt_reconnection()
+{
+    qDebug() << "Attempting to reconnect to server...";
+    
+    if (m_socket->state() == QAbstractSocket::ConnectedState) {
+        qDebug() << "Already connected, stopping reconnection attempts";
+        m_reconnect_timer->stop();
+        return;
+    }
+    
+    // Don't attempt reconnection if we're already trying to connect
+    if (m_socket->state() == QAbstractSocket::ConnectingState) {
+        qDebug() << "Connection attempt already in progress";
+        return;
+    }
+    
+    connect_to_server();
 }
 
 void Api_Client::on_socket_ready_read()
@@ -584,6 +656,12 @@ void Api_Client::on_request_timeout()
 void Api_Client::handle_response(const QJsonObject& response)
 {
     Api_Response api_response = parse_json_response(response);
+    
+    // Special handling for KEEPALIVE/PONG responses
+    if (api_response.message == "PONG") {
+        qDebug() << "Received PONG response - connection is active";
+        return; // No further processing needed for keepalive
+    }
     
     qDebug() << "Response received for:" << request_type_to_string(m_current_request_type);
     qDebug() << "Success:" << api_response.success;

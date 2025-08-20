@@ -1,5 +1,6 @@
 #include "ui/Main_Window.h"
 #include "ui/Login_Window.h"
+#include "network/Api_Client.h"
 #include "models/User_Model.h"
 #include "models/Destination_Model.h"
 #include "models/Offer_Model.h"
@@ -38,6 +39,7 @@ Main_Window::Main_Window(QWidget *parent)
     , m_settings_action(nullptr)
     , m_toggle_theme_action(nullptr)
     , m_about_action(nullptr)
+    , m_test_connection_action(nullptr)
     , m_status_bar(nullptr)
     , m_connection_status_label(nullptr)
     , m_user_status_label(nullptr)
@@ -78,6 +80,9 @@ Main_Window::Main_Window(QWidget *parent)
     setup_menu_bar();
     setup_status_bar();
     setup_connections();
+    
+    // Initialize API client connection
+    Api_Client::instance().initialize_connection();
     
     // Initialize with login prompt
     show_login_prompt();
@@ -844,6 +849,12 @@ void Main_Window::setup_menu_bar()
     m_settings_action = new QAction("&Setări...", this);
     m_view_menu->addAction(m_settings_action);
     
+    m_view_menu->addSeparator();
+    
+    m_test_connection_action = new QAction("Test &Conexiune", this);
+    m_test_connection_action->setShortcut(QKeySequence("Ctrl+Shift+T"));
+    m_view_menu->addAction(m_test_connection_action);
+    
     // Help Menu
     m_help_menu = m_menu_bar->addMenu("&Ajutor");
     
@@ -881,6 +892,7 @@ void Main_Window::setup_connections()
     connect(m_about_action, &QAction::triggered, this, &Main_Window::on_about_action);
     connect(m_settings_action, &QAction::triggered, this, &Main_Window::on_settings_action);
     connect(m_toggle_theme_action, &QAction::triggered, this, &Main_Window::on_toggle_theme_action);
+    connect(m_test_connection_action, &QAction::triggered, this, &Main_Window::on_test_connection_action);
     
     // Header buttons
     connect(m_user_menu_button, &QPushButton::clicked, this, &Main_Window::on_login_action);
@@ -914,6 +926,25 @@ void Main_Window::setup_connections()
     connect(m_reservation_model.get(), &Reservation_Model::error_occurred,
             [this](const QString& error) {
                 QMessageBox::warning(this, "Eroare Rezervări", error);
+            });
+    
+    // API Client connection status monitoring
+    connect(&Api_Client::instance(), &Api_Client::connection_status_changed,
+            [this](bool connected) {
+                if (m_connection_status_label) {
+                    m_connection_status_label->setText(connected ? "Conectat" : "Deconectat");
+                }
+                qDebug() << "Connection status changed:" << (connected ? "Connected" : "Disconnected");
+            });
+    
+    connect(&Api_Client::instance(), &Api_Client::network_error,
+            [this](const QString& error) {
+                if (m_connection_status_label) {
+                    m_connection_status_label->setText("Eroare conexiune");
+                }
+                qDebug() << "Network error:" << error;
+                QMessageBox::warning(this, "Eroare de rețea", 
+                    QString("Eroare de conexiune la server: %1").arg(error));
             });
 }
 
@@ -963,6 +994,25 @@ void Main_Window::on_toggle_theme_action()
     
     // Apply theme (StyleManager will be used here in future)
     QMessageBox::information(this, "Temă", QString("Comutare la tema: %1").arg(m_current_theme));
+}
+
+void Main_Window::on_test_connection_action()
+{
+    qDebug() << "Manual connection test requested";
+    
+    Api_Client& client = Api_Client::instance();
+    
+    if (client.is_connected()) {
+        // Test with keepalive message
+        client.test_connection();
+        QMessageBox::information(this, "Test Conexiune", 
+            "Conexiunea este activă. Mesaj de test trimis la server.");
+    } else {
+        // Try to reconnect
+        client.initialize_connection();
+        QMessageBox::information(this, "Test Conexiune", 
+            "Conexiunea nu este activă. Se încearcă reconectarea...");
+    }
 }
 
 void Main_Window::on_tab_changed(int index)
