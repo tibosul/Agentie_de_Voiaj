@@ -2,6 +2,8 @@
 #include "ui/Login_Window.h"
 #include "models/User_Model.h"
 #include "models/Destination_Model.h"
+#include "models/Offer_Model.h"
+#include "models/Reservation_Model.h"
 #include "config.h"
 
 #include <QApplication>
@@ -47,6 +49,28 @@ Main_Window::Main_Window(QWidget *parent)
     , m_theme_toggle_button(nullptr)
     , m_user_model(std::make_unique<User_Model>(this))
     , m_destination_model(std::make_unique<Destination_Model>(this))
+    , m_offer_model(std::make_unique<Offer_Model>(this))
+    , m_reservation_model(std::make_unique<Reservation_Model>(this))
+    , m_offers_container(nullptr)
+    , m_offers_container_layout(nullptr)
+    , m_offers_loading_label(nullptr)
+    , m_offers_no_offers_label(nullptr)
+    , m_reservations_auth_widget(nullptr)
+    , m_reservations_scroll_area(nullptr)
+    , m_reservations_container(nullptr)
+    , m_reservations_container_layout(nullptr)
+    , m_reservations_loading_label(nullptr)
+    , m_reservations_no_reservations_label(nullptr)
+    , m_profile_auth_widget(nullptr)
+    , m_profile_form_widget(nullptr)
+    , m_profile_username_edit(nullptr)
+    , m_profile_email_edit(nullptr)
+    , m_profile_first_name_edit(nullptr)
+    , m_profile_last_name_edit(nullptr)
+    , m_profile_phone_edit(nullptr)
+    , m_profile_edit_button(nullptr)
+    , m_profile_save_button(nullptr)
+    , m_profile_cancel_button(nullptr)
     , m_is_authenticated(false)
     , m_current_theme("light")
 {
@@ -250,96 +274,151 @@ void Main_Window::create_offers_tab()
     layout->setContentsMargins(20, 20, 20, 20);
     layout->setSpacing(20);
     
-    // Filters section
-    QHBoxLayout* filtersLayout = new QHBoxLayout();
+    // Header section
+    QHBoxLayout* headerLayout = new QHBoxLayout();
     
-    QLabel* filtersLabel = new QLabel("Filtrează ofertele:");
-    filtersLabel->setStyleSheet("font-weight: bold; font-size: 16px;");
-    filtersLayout->addWidget(filtersLabel);
+    QLabel* titleLabel = new QLabel("Oferte de Călătorie");
+    titleLabel->setStyleSheet("font-weight: bold; font-size: 24px; color: #2c3e50;");
+    headerLayout->addWidget(titleLabel);
+    
+    QPushButton* refreshButton = new QPushButton("🔄 Actualizează");
+    refreshButton->setStyleSheet(
+        "QPushButton { "
+        "background-color: #3498db; "
+        "color: white; "
+        "border: none; "
+        "padding: 8px 16px; "
+        "border-radius: 4px; "
+        "font-weight: bold; "
+        "} "
+        "QPushButton:hover { "
+        "background-color: #2980b9; "
+        "}"
+    );
+    connect(refreshButton, &QPushButton::clicked, [this]() {
+        if (m_offer_model)
+            m_offer_model->refresh_offers();
+    });
+    headerLayout->addWidget(refreshButton);
+    
+    headerLayout->addStretch();
+    layout->addLayout(headerLayout);
+    
+    // Search and filters section
+    QHBoxLayout* searchLayout = new QHBoxLayout();
+    
+    QLabel* searchLabel = new QLabel("Caută:");
+    searchLabel->setStyleSheet("font-weight: bold; font-size: 14px;");
+    searchLayout->addWidget(searchLabel);
+    
+    QLineEdit* searchEdit = new QLineEdit();
+    searchEdit->setPlaceholderText("Introduceți destinația...");
+    searchEdit->setMinimumWidth(200);
+    searchEdit->setStyleSheet(
+        "QLineEdit { "
+        "padding: 8px; "
+        "border: 2px solid #bdc3c7; "
+        "border-radius: 4px; "
+        "font-size: 14px; "
+        "} "
+        "QLineEdit:focus { "
+        "border-color: #3498db; "
+        "}"
+    );
+    searchLayout->addWidget(searchEdit);
+    
+    QLabel* priceLabel = new QLabel("Preț:");
+    priceLabel->setStyleSheet("font-weight: bold; font-size: 14px; margin-left: 20px;");
+    searchLayout->addWidget(priceLabel);
     
     QLineEdit* priceMinEdit = new QLineEdit();
-    priceMinEdit->setPlaceholderText("Preț min");
-    priceMinEdit->setMaximumWidth(100);
-    filtersLayout->addWidget(priceMinEdit);
+    priceMinEdit->setPlaceholderText("Min");
+    priceMinEdit->setMaximumWidth(80);
+    priceMinEdit->setStyleSheet(
+        "QLineEdit { "
+        "padding: 6px; "
+        "border: 1px solid #bdc3c7; "
+        "border-radius: 4px; "
+        "}"
+    );
+    searchLayout->addWidget(priceMinEdit);
+    
+    QLabel* toLabel = new QLabel("-");
+    toLabel->setStyleSheet("margin: 0 5px;");
+    searchLayout->addWidget(toLabel);
     
     QLineEdit* priceMaxEdit = new QLineEdit();
-    priceMaxEdit->setPlaceholderText("Preț max");
-    priceMaxEdit->setMaximumWidth(100);
-    filtersLayout->addWidget(priceMaxEdit);
+    priceMaxEdit->setPlaceholderText("Max");
+    priceMaxEdit->setMaximumWidth(80);
+    priceMaxEdit->setStyleSheet(
+        "QLineEdit { "
+        "padding: 6px; "
+        "border: 1px solid #bdc3c7; "
+        "border-radius: 4px; "
+        "}"
+    );
+    searchLayout->addWidget(priceMaxEdit);
     
-    QPushButton* filterButton = new QPushButton("Aplică Filtre");
-    filtersLayout->addWidget(filterButton);
+    QPushButton* searchButton = new QPushButton("🔍 Caută");
+    searchButton->setStyleSheet(
+        "QPushButton { "
+        "background-color: #27ae60; "
+        "color: white; "
+        "border: none; "
+        "padding: 8px 16px; "
+        "border-radius: 4px; "
+        "font-weight: bold; "
+        "} "
+        "QPushButton:hover { "
+        "background-color: #229954; "
+        "}"
+    );
+    connect(searchButton, &QPushButton::clicked, [this, searchEdit, priceMinEdit, priceMaxEdit]() {
+        if (m_offer_model) {
+            QString destination = searchEdit->text();
+            double minPrice = priceMinEdit->text().toDouble();
+            double maxPrice = priceMaxEdit->text().toDouble();
+            m_offer_model->search_offers(destination, minPrice, maxPrice);
+        }
+    });
+    searchLayout->addWidget(searchButton);
     
-    filtersLayout->addStretch();
-    layout->addLayout(filtersLayout);
+    searchLayout->addStretch();
+    layout->addLayout(searchLayout);
     
     // Offers list
     QScrollArea* scrollArea = new QScrollArea();
     QWidget* scrollContent = new QWidget();
     QVBoxLayout* offersLayout = new QVBoxLayout(scrollContent);
     
-    // Placeholder offers
-    for (int i = 0; i < 5; ++i) {
-        QWidget* offerCard = new QWidget();
-        offerCard->setFixedHeight(150);
-        offerCard->setStyleSheet(
-            "QWidget { "
-            "background-color: white; "
-            "border: 1px solid #e0e0e0; "
-            "border-radius: 8px; "
-            "margin: 5px; "
-            "} "
-            "QWidget:hover { "
-            "border-color: #4a90e2; "
-            "}"
-        );
-        
-        QHBoxLayout* offerLayout = new QHBoxLayout(offerCard);
-        
-        // Image placeholder
-        QLabel* imageLabel = new QLabel("🏖️");
-        imageLabel->setFixedSize(120, 120);
-        imageLabel->setAlignment(Qt::AlignCenter);
-        imageLabel->setStyleSheet("background-color: #f8f9fa; border-radius: 4px; font-size: 32px;");
-        offerLayout->addWidget(imageLabel);
-        
-        // Offer details
-        QVBoxLayout* detailsLayout = new QVBoxLayout();
-        
-        QLabel* titleLabel = new QLabel(QString("Oferta Paris %1 zile").arg(3 + i));
-        titleLabel->setStyleSheet("font-weight: bold; font-size: 18px;");
-        detailsLayout->addWidget(titleLabel);
-        
-        QLabel* descLabel = new QLabel("Descriere scurtă a ofertei cu toate detaliile importante...");
-        descLabel->setWordWrap(true);
-        detailsLayout->addWidget(descLabel);
-        
-        QLabel* priceLabel = new QLabel(QString("€%1/persoană").arg(299 + i * 50));
-        priceLabel->setStyleSheet("font-weight: bold; font-size: 16px; color: #e74c3c;");
-        detailsLayout->addWidget(priceLabel);
-        
-        detailsLayout->addStretch();
-        offerLayout->addLayout(detailsLayout);
-        
-        // Actions
-        QVBoxLayout* actionsLayout = new QVBoxLayout();
-        actionsLayout->addStretch();
-        
-        QPushButton* bookButton = new QPushButton("Rezervă Acum");
-        bookButton->setStyleSheet("background-color: #27ae60; color: white; font-weight: bold;");
-        actionsLayout->addWidget(bookButton);
-        
-        QPushButton* detailsButton = new QPushButton("Detalii");
-        actionsLayout->addWidget(detailsButton);
-        
-        offerLayout->addLayout(actionsLayout);
-        
-        offersLayout->addWidget(offerCard);
-    }
+    // Loading indicator
+    QLabel* loadingLabel = new QLabel("Se încarcă ofertele...");
+    loadingLabel->setAlignment(Qt::AlignCenter);
+    loadingLabel->setStyleSheet("font-size: 16px; color: #7f8c8d; padding: 40px;");
+    offersLayout->addWidget(loadingLabel);
+    
+    // No offers message
+    QLabel* noOffersLabel = new QLabel("Nu s-au găsit oferte. Încercați să modificați criteriile de căutare.");
+    noOffersLabel->setAlignment(Qt::AlignCenter);
+    noOffersLabel->setStyleSheet("font-size: 16px; color: #7f8c8d; padding: 40px;");
+    noOffersLabel->hide();
+    offersLayout->addWidget(noOffersLabel);
+    
+    // Offers container
+    QWidget* offersContainer = new QWidget();
+    QVBoxLayout* offersContainerLayout = new QVBoxLayout(offersContainer);
+    offersContainerLayout->setSpacing(15);
+    offersLayout->addWidget(offersContainer);
     
     scrollArea->setWidget(scrollContent);
     scrollArea->setWidgetResizable(true);
     layout->addWidget(scrollArea);
+    
+    // Store references for later use
+    m_offers_container = offersContainer;
+    m_offers_container_layout = offersContainerLayout;
+    m_offers_loading_label = loadingLabel;
+    m_offers_no_offers_label = noOffersLabel;
     
     m_tab_widget->addTab(m_offers_tab, "Oferte");
 }
@@ -351,9 +430,35 @@ void Main_Window::create_reservations_tab()
     layout->setContentsMargins(20, 20, 20, 20);
     layout->setSpacing(20);
     
+    // Header section
+    QHBoxLayout* headerLayout = new QHBoxLayout();
+    
     QLabel* titleLabel = new QLabel("Rezervările Mele");
-    titleLabel->setStyleSheet("font-weight: bold; font-size: 20px;");
-    layout->addWidget(titleLabel);
+    titleLabel->setStyleSheet("font-weight: bold; font-size: 24px; color: #2c3e50;");
+    headerLayout->addWidget(titleLabel);
+    
+    QPushButton* refreshButton = new QPushButton("🔄 Actualizează");
+    refreshButton->setStyleSheet(
+        "QPushButton { "
+        "background-color: #3498db; "
+        "color: white; "
+        "border: none; "
+        "padding: 8px 16px; "
+        "border-radius: 4px; "
+        "font-weight: bold; "
+        "} "
+        "QPushButton:hover { "
+        "background-color: #2980b9; "
+        "}"
+    );
+    connect(refreshButton, &QPushButton::clicked, [this]() {
+        if (m_reservation_model)
+            m_reservation_model->refresh_reservations();
+    });
+    headerLayout->addWidget(refreshButton);
+    
+    headerLayout->addStretch();
+    layout->addLayout(headerLayout);
     
     // Authentication required message
     QWidget* authRequiredWidget = new QWidget();
@@ -362,15 +467,65 @@ void Main_Window::create_reservations_tab()
     
     QLabel* authLabel = new QLabel("Pentru a vedea rezervările, vă rugăm să vă conectați.");
     authLabel->setAlignment(Qt::AlignCenter);
-    authLabel->setStyleSheet("font-size: 16px; color: #666;");
+    authLabel->setStyleSheet("font-size: 16px; color: #7f8c8d;");
     authLayout->addWidget(authLabel);
     
     QPushButton* loginButton = new QPushButton("Conectează-te");
     loginButton->setMaximumWidth(200);
+    loginButton->setStyleSheet(
+        "QPushButton { "
+        "background-color: #27ae60; "
+        "color: white; "
+        "border: none; "
+        "padding: 10px 20px; "
+        "border-radius: 4px; "
+        "font-weight: bold; "
+        "} "
+        "QPushButton:hover { "
+        "background-color: #229954; "
+        "}"
+    );
     connect(loginButton, &QPushButton::clicked, this, &Main_Window::on_login_action);
     authLayout->addWidget(loginButton);
     
     layout->addWidget(authRequiredWidget);
+    
+    // Reservations list (hidden initially)
+    QScrollArea* scrollArea = new QScrollArea();
+    QWidget* scrollContent = new QWidget();
+    QVBoxLayout* reservationsLayout = new QVBoxLayout(scrollContent);
+    
+    // Loading indicator
+    QLabel* loadingLabel = new QLabel("Se încarcă rezervările...");
+    loadingLabel->setAlignment(Qt::AlignCenter);
+    loadingLabel->setStyleSheet("font-size: 16px; color: #7f8c8d; padding: 40px;");
+    reservationsLayout->addWidget(loadingLabel);
+    
+    // No reservations message
+    QLabel* noReservationsLabel = new QLabel("Nu aveți rezervări active. Explorați ofertele pentru a face o rezervare!");
+    noReservationsLabel->setAlignment(Qt::AlignCenter);
+    noReservationsLabel->setStyleSheet("font-size: 16px; color: #7f8c8d; padding: 40px;");
+    noReservationsLabel->hide();
+    reservationsLayout->addWidget(noReservationsLabel);
+    
+    // Reservations container
+    QWidget* reservationsContainer = new QWidget();
+    QVBoxLayout* reservationsContainerLayout = new QVBoxLayout(reservationsContainer);
+    reservationsContainerLayout->setSpacing(15);
+    reservationsLayout->addWidget(reservationsContainer);
+    
+    scrollArea->setWidget(scrollContent);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->hide(); // Hidden until user is authenticated
+    layout->addWidget(scrollArea);
+    
+    // Store references for later use
+    m_reservations_auth_widget = authRequiredWidget;
+    m_reservations_scroll_area = scrollArea;
+    m_reservations_container = reservationsContainer;
+    m_reservations_container_layout = reservationsContainerLayout;
+    m_reservations_loading_label = loadingLabel;
+    m_reservations_no_reservations_label = noReservationsLabel;
     
     m_tab_widget->addTab(m_reservations_tab, "Rezervări");
 }
@@ -382,40 +537,278 @@ void Main_Window::create_profile_tab()
     layout->setContentsMargins(20, 20, 20, 20);
     layout->setSpacing(20);
     
+    // Header section
+    QHBoxLayout* headerLayout = new QHBoxLayout();
+    
     QLabel* titleLabel = new QLabel("Profilul Meu");
-    titleLabel->setStyleSheet("font-weight: bold; font-size: 20px;");
-    layout->addWidget(titleLabel);
+    titleLabel->setStyleSheet("font-weight: bold; font-size: 24px; color: #2c3e50;");
+    headerLayout->addWidget(titleLabel);
     
-    // Profile form (disabled initially)
+    QPushButton* refreshButton = new QPushButton("🔄 Actualizează");
+    refreshButton->setStyleSheet(
+        "QPushButton { "
+        "background-color: #3498db; "
+        "color: white; "
+        "border: none; "
+        "padding: 8px 16px; "
+        "border-radius: 4px; "
+        "font-weight: bold; "
+        "} "
+        "QPushButton:hover { "
+        "background-color: #2980b9; "
+        "}"
+    );
+    connect(refreshButton, &QPushButton::clicked, [this]() {
+        if (m_user_model)
+            m_user_model->refresh_user_info();
+    });
+    headerLayout->addWidget(refreshButton);
+    
+    headerLayout->addStretch();
+    layout->addLayout(headerLayout);
+    
+    // Authentication required message
+    QWidget* authRequiredWidget = new QWidget();
+    QVBoxLayout* authLayout = new QVBoxLayout(authRequiredWidget);
+    authLayout->setAlignment(Qt::AlignCenter);
+    
+    QLabel* authLabel = new QLabel("Pentru a vedea profilul, vă rugăm să vă conectați.");
+    authLabel->setAlignment(Qt::AlignCenter);
+    authLabel->setStyleSheet("font-size: 16px; color: #7f8c8d;");
+    authLayout->addWidget(authLabel);
+    
+    QPushButton* loginButton = new QPushButton("Conectează-te");
+    loginButton->setMaximumWidth(200);
+    loginButton->setStyleSheet(
+        "QPushButton { "
+        "background-color: #27ae60; "
+        "color: white; "
+        "border: none; "
+        "padding: 10px 20px; "
+        "border-radius: 4px; "
+        "font-weight: bold; "
+        "} "
+        "QPushButton:hover { "
+        "background-color: #229954; "
+        "}"
+    );
+    connect(loginButton, &QPushButton::clicked, this, &Main_Window::on_login_action);
+    authLayout->addWidget(loginButton);
+    
+    layout->addWidget(authRequiredWidget);
+    
+    // Profile form (hidden initially)
+    QWidget* profileFormWidget = new QWidget();
+    QVBoxLayout* profileFormLayout = new QVBoxLayout(profileFormWidget);
+    
     QGroupBox* profileGroup = new QGroupBox("Informații Personale");
-    QGridLayout* profileLayout = new QGridLayout(profileGroup);
+    profileGroup->setStyleSheet(
+        "QGroupBox { "
+        "font-weight: bold; "
+        "font-size: 16px; "
+        "color: #2c3e50; "
+        "border: 2px solid #bdc3c7; "
+        "border-radius: 8px; "
+        "margin-top: 10px; "
+        "padding-top: 10px; "
+        "} "
+        "QGroupBox::title { "
+        "subcontrol-origin: margin; "
+        "left: 10px; "
+        "padding: 0 5px 0 5px; "
+        "}"
+    );
     
-    profileLayout->addWidget(new QLabel("Nume utilizator:"), 0, 0);
+    QGridLayout* profileLayout = new QGridLayout(profileGroup);
+    profileLayout->setSpacing(15);
+    profileLayout->setColumnStretch(1, 1);
+    
+    // Username field
+    QLabel* usernameLabel = new QLabel("Nume utilizator:");
+    usernameLabel->setStyleSheet("font-weight: bold; font-size: 14px;");
+    profileLayout->addWidget(usernameLabel, 0, 0);
+    
     QLineEdit* usernameEdit = new QLineEdit();
+    usernameEdit->setStyleSheet(
+        "QLineEdit { "
+        "padding: 8px; "
+        "border: 2px solid #bdc3c7; "
+        "border-radius: 4px; "
+        "font-size: 14px; "
+        "background-color: #ecf0f1; "
+        "} "
+        "QLineEdit:enabled { "
+        "background-color: white; "
+        "border-color: #3498db; "
+        "}"
+    );
     usernameEdit->setEnabled(false);
     profileLayout->addWidget(usernameEdit, 0, 1);
     
-    profileLayout->addWidget(new QLabel("Email:"), 1, 0);
+    // Email field
+    QLabel* emailLabel = new QLabel("Email:");
+    emailLabel->setStyleSheet("font-weight: bold; font-size: 14px;");
+    profileLayout->addWidget(emailLabel, 1, 0);
+    
     QLineEdit* emailEdit = new QLineEdit();
+    emailEdit->setStyleSheet(
+        "QLineEdit { "
+        "padding: 8px; "
+        "border: 2px solid #bdc3c7; "
+        "border-radius: 4px; "
+        "font-size: 14px; "
+        "background-color: #ecf0f1; "
+        "} "
+        "QLineEdit:enabled { "
+        "background-color: white; "
+        "border-color: #3498db; "
+        "}"
+    );
     emailEdit->setEnabled(false);
     profileLayout->addWidget(emailEdit, 1, 1);
     
-    profileLayout->addWidget(new QLabel("Prenume:"), 2, 0);
+    // First name field
+    QLabel* firstNameLabel = new QLabel("Prenume:");
+    firstNameLabel->setStyleSheet("font-weight: bold; font-size: 14px;");
+    profileLayout->addWidget(firstNameLabel, 2, 0);
+    
     QLineEdit* firstNameEdit = new QLineEdit();
+    firstNameEdit->setStyleSheet(
+        "QLineEdit { "
+        "padding: 8px; "
+        "border: 2px solid #bdc3c7; "
+        "border-radius: 4px; "
+        "font-size: 14px; "
+        "background-color: #ecf0f1; "
+        "} "
+        "QLineEdit:enabled { "
+        "background-color: white; "
+        "border-color: #3498db; "
+        "}"
+    );
     firstNameEdit->setEnabled(false);
     profileLayout->addWidget(firstNameEdit, 2, 1);
     
-    profileLayout->addWidget(new QLabel("Nume:"), 3, 0);
+    // Last name field
+    QLabel* lastNameLabel = new QLabel("Nume de familie:");
+    lastNameLabel->setStyleSheet("font-weight: bold; font-size: 14px;");
+    profileLayout->addWidget(lastNameLabel, 3, 0);
+    
     QLineEdit* lastNameEdit = new QLineEdit();
+    lastNameEdit->setStyleSheet(
+        "QLineEdit { "
+        "padding: 8px; "
+        "border: 2px solid #bdc3c7; "
+        "border-radius: 4px; "
+        "font-size: 14px; "
+        "background-color: #ecf0f1; "
+        "} "
+        "QLineEdit:enabled { "
+        "background-color: white; "
+        "border-color: #3498db; "
+        "}"
+    );
     lastNameEdit->setEnabled(false);
     profileLayout->addWidget(lastNameEdit, 3, 1);
     
-    QPushButton* editButton = new QPushButton("Editează Profil");
-    editButton->setEnabled(false);
-    profileLayout->addWidget(editButton, 4, 0, 1, 2);
+    // Phone field
+    QLabel* phoneLabel = new QLabel("Telefon:");
+    phoneLabel->setStyleSheet("font-weight: bold; font-size: 14px;");
+    profileLayout->addWidget(phoneLabel, 4, 0);
     
-    layout->addWidget(profileGroup);
-    layout->addStretch();
+    QLineEdit* phoneEdit = new QLineEdit();
+    phoneEdit->setStyleSheet(
+        "QLineEdit { "
+        "padding: 8px; "
+        "border: 2px solid #bdc3c7; "
+        "border-radius: 4px; "
+        "font-size: 14px; "
+        "background-color: #ecf0f1; "
+        "} "
+        "QLineEdit:enabled { "
+        "background-color: white; "
+        "border-color: #3498db; "
+        "}"
+    );
+    phoneEdit->setEnabled(false);
+    profileLayout->addWidget(phoneEdit, 4, 1);
+    
+    // Action buttons
+    QHBoxLayout* buttonsLayout = new QHBoxLayout();
+    
+    QPushButton* editButton = new QPushButton("✏️ Editează Profil");
+    editButton->setStyleSheet(
+        "QPushButton { "
+        "background-color: #f39c12; "
+        "color: white; "
+        "border: none; "
+        "padding: 10px 20px; "
+        "border-radius: 4px; "
+        "font-weight: bold; "
+        "} "
+        "QPushButton:hover { "
+        "background-color: #e67e22; "
+        "}"
+    );
+    editButton->setEnabled(false);
+    buttonsLayout->addWidget(editButton);
+    
+    QPushButton* saveButton = new QPushButton("💾 Salvează");
+    saveButton->setStyleSheet(
+        "QPushButton { "
+        "background-color: #27ae60; "
+        "color: white; "
+        "border: none; "
+        "padding: 10px 20px; "
+        "border-radius: 4px; "
+        "font-weight: bold; "
+        "} "
+        "QPushButton:hover { "
+        "background-color: #229954; "
+        "}"
+    );
+    saveButton->setEnabled(false);
+    saveButton->hide();
+    buttonsLayout->addWidget(saveButton);
+    
+    QPushButton* cancelButton = new QPushButton("❌ Anulează");
+    cancelButton->setStyleSheet(
+        "QPushButton { "
+        "background-color: #e74c3c; "
+        "color: white; "
+        "border: none; "
+        "padding: 10px 20px; "
+        "border-radius: 4px; "
+        "font-weight: bold; "
+        "} "
+        "QPushButton:hover { "
+        "background-color: #c0392b; "
+        "}"
+    );
+    cancelButton->setEnabled(false);
+    cancelButton->hide();
+    buttonsLayout->addWidget(cancelButton);
+    
+    buttonsLayout->addStretch();
+    profileLayout->addLayout(buttonsLayout, 5, 0, 1, 2);
+    
+    profileFormLayout->addWidget(profileGroup);
+    profileFormLayout->addStretch();
+    
+    profileFormWidget->hide(); // Hidden until user is authenticated
+    layout->addWidget(profileFormWidget);
+    
+    // Store references for later use
+    m_profile_auth_widget = authRequiredWidget;
+    m_profile_form_widget = profileFormWidget;
+    m_profile_username_edit = usernameEdit;
+    m_profile_email_edit = emailEdit;
+    m_profile_first_name_edit = firstNameEdit;
+    m_profile_last_name_edit = lastNameEdit;
+    m_profile_phone_edit = phoneEdit;
+    m_profile_edit_button = editButton;
+    m_profile_save_button = saveButton;
+    m_profile_cancel_button = cancelButton;
     
     m_tab_widget->addTab(m_profile_tab, "Profil");
 }
@@ -500,10 +893,28 @@ void Main_Window::setup_connections()
             this, &Main_Window::on_user_logged_in);
     connect(m_user_model.get(), &User_Model::logged_out,
             this, &Main_Window::on_user_logged_out);
+    connect(m_user_model.get(), &User_Model::user_info_updated,
+            this, &Main_Window::on_user_info_updated);
     
     // Destination model connections
     connect(m_destination_model.get(), &Destination_Model::destinations_loaded,
             this, &Main_Window::on_destinations_loaded);
+    
+    // Offer model connections
+    connect(m_offer_model.get(), &Offer_Model::offers_loaded,
+            this, &Main_Window::on_offers_loaded);
+    connect(m_offer_model.get(), &Offer_Model::error_occurred,
+            [this](const QString& error) {
+                QMessageBox::warning(this, "Eroare Oferte", error);
+            });
+    
+    // Reservation model connections
+    connect(m_reservation_model.get(), &Reservation_Model::reservations_loaded,
+            this, &Main_Window::on_reservations_loaded);
+    connect(m_reservation_model.get(), &Reservation_Model::error_occurred,
+            [this](const QString& error) {
+                QMessageBox::warning(this, "Eroare Rezervări", error);
+            });
 }
 
 void Main_Window::on_login_action()
@@ -563,11 +974,13 @@ void Main_Window::on_tab_changed(int index)
 void Main_Window::on_user_logged_in()
 {
     show_welcome_message();
+    update_ui_for_authentication_state();
 }
 
 void Main_Window::on_user_logged_out()
 {
     show_login_prompt();
+    update_ui_for_authentication_state();
 }
 
 void Main_Window::on_authentication_status_changed(bool is_authenticated)
@@ -579,6 +992,69 @@ void Main_Window::on_authentication_status_changed(bool is_authenticated)
 void Main_Window::on_destinations_loaded()
 {
     m_status_bar->showMessage("Destinații încărcate cu succes", 3000);
+}
+
+void Main_Window::on_offers_loaded()
+{
+    m_status_bar->showMessage("Oferte încărcate cu succes", 3000);
+    
+    // Hide loading indicator
+    if (m_offers_loading_label) {
+        m_offers_loading_label->hide();
+    }
+    
+    // Show/hide no offers message
+    if (m_offers_no_offers_label) {
+        bool hasOffers = m_offer_model && m_offer_model->get_offer_count() > 0;
+        m_offers_no_offers_label->setVisible(!hasOffers);
+    }
+    
+    // Refresh offers display
+    refresh_offers_display();
+}
+
+void Main_Window::on_reservations_loaded()
+{
+    m_status_bar->showMessage("Rezervări încărcate cu succes", 3000);
+    
+    // Hide loading indicator
+    if (m_reservations_loading_label) {
+        m_reservations_loading_label->hide();
+    }
+    
+    // Show/hide no reservations message
+    if (m_reservations_no_reservations_label) {
+        bool hasReservations = m_reservation_model && m_reservation_model->get_reservation_count() > 0;
+        m_reservations_no_reservations_label->setVisible(!hasReservations);
+    }
+    
+    // Refresh reservations display
+    refresh_reservations_display();
+}
+
+void Main_Window::on_user_info_updated()
+{
+    if (m_is_authenticated) {
+        m_profile_username_edit->setText(m_user_model->get_username());
+        m_profile_email_edit->setText(m_user_model->get_email());
+        m_profile_first_name_edit->setText(m_user_model->get_first_name());
+        m_profile_last_name_edit->setText(m_user_model->get_last_name());
+        m_profile_phone_edit->setText(m_user_model->get_phone());
+        
+        m_profile_edit_button->setEnabled(true);
+        m_profile_save_button->show();
+        m_profile_cancel_button->hide();
+    } else {
+        m_profile_username_edit->setText("Neconectat");
+        m_profile_email_edit->setText("");
+        m_profile_first_name_edit->setText("");
+        m_profile_last_name_edit->setText("");
+        m_profile_phone_edit->setText("");
+        
+        m_profile_edit_button->setEnabled(false);
+        m_profile_save_button->hide();
+        m_profile_cancel_button->hide();
+    }
 }
 
 void Main_Window::update_ui_for_authentication_state()
@@ -602,6 +1078,28 @@ void Main_Window::update_ui_for_authentication_state()
     // Update tabs availability
     m_tab_widget->setTabEnabled(2, m_is_authenticated); // Reservations
     m_tab_widget->setTabEnabled(3, m_is_authenticated); // Profile
+    
+    // Update profile form visibility
+    if (m_profile_auth_widget && m_profile_form_widget) {
+        m_profile_auth_widget->setVisible(!m_is_authenticated);
+        m_profile_form_widget->setVisible(m_is_authenticated);
+    }
+    
+    // Update reservations visibility
+    if (m_reservations_auth_widget && m_reservations_scroll_area) {
+        m_reservations_auth_widget->setVisible(!m_is_authenticated);
+        m_reservations_scroll_area->setVisible(m_is_authenticated);
+        
+        // Load reservations if authenticated
+        if (m_is_authenticated && m_reservation_model) {
+            m_reservation_model->refresh_reservations();
+        }
+    }
+    
+    // Load offers if not already loaded
+    if (m_offer_model && m_offer_model->get_offer_count() == 0) {
+        m_offer_model->refresh_offers();
+    }
 }
 
 void Main_Window::show_welcome_message()
@@ -627,5 +1125,186 @@ void Main_Window::show_loading_indicator(bool show)
     if (show) {
         m_progress_bar->setRange(0, 0); // Indeterminate progress
     }
+}
+
+void Main_Window::refresh_offers_display()
+{
+    if (!m_offers_container_layout || !m_offer_model) {
+        return;
+    }
+    
+    // Clear existing offers
+    QLayoutItem* item;
+    while ((item = m_offers_container_layout->takeAt(0)) != nullptr) {
+        delete item->widget();
+        delete item;
+    }
+    
+    // Add new offers
+    const auto& offers = m_offer_model->get_offers();
+    for (const auto& offer : offers) {
+        QWidget* offerCard = create_offer_card(offer);
+        m_offers_container_layout->addWidget(offerCard);
+    }
+}
+
+void Main_Window::refresh_reservations_display()
+{
+    if (!m_reservations_container_layout || !m_reservation_model) {
+        return;
+    }
+    
+    // Clear existing reservations
+    QLayoutItem* item;
+    while ((item = m_reservations_container_layout->takeAt(0)) != nullptr) {
+        delete item->widget();
+        delete item;
+    }
+    
+    // Add new reservations
+    const auto& reservations = m_reservation_model->get_reservations();
+    for (const auto& reservation : reservations) {
+        QWidget* reservationCard = create_reservation_card(reservation);
+        m_reservations_container_layout->addWidget(reservationCard);
+    }
+}
+
+QWidget* Main_Window::create_offer_card(const Offer_Model::Offer& offer)
+{
+    QWidget* offerCard = new QWidget();
+    offerCard->setFixedHeight(150);
+    offerCard->setStyleSheet(
+        "QWidget { "
+        "background-color: white; "
+        "border: 1px solid #e0e0e0; "
+        "border-radius: 8px; "
+        "margin: 5px; "
+        "} "
+        "QWidget:hover { "
+        "border-color: #4a90e2; "
+        "box-shadow: 0 2px 8px rgba(0,0,0,0.1); "
+        "}"
+    );
+    
+    QHBoxLayout* offerLayout = new QHBoxLayout(offerCard);
+    
+    // Image placeholder
+    QLabel* imageLabel = new QLabel("🏖️");
+    imageLabel->setFixedSize(120, 120);
+    imageLabel->setAlignment(Qt::AlignCenter);
+    imageLabel->setStyleSheet("background-color: #f8f9fa; border-radius: 4px; font-size: 32px;");
+    offerLayout->addWidget(imageLabel);
+    
+    // Offer details
+    QVBoxLayout* detailsLayout = new QVBoxLayout();
+    
+    QLabel* titleLabel = new QLabel(offer.name);
+    titleLabel->setStyleSheet("font-weight: bold; font-size: 18px;");
+    detailsLayout->addWidget(titleLabel);
+    
+    QLabel* descLabel = new QLabel(offer.description);
+    descLabel->setWordWrap(true);
+    detailsLayout->addWidget(descLabel);
+    
+    QLabel* priceLabel = new QLabel(QString("€%1/persoană").arg(offer.price_per_person));
+    priceLabel->setStyleSheet("font-weight: bold; font-size: 16px; color: #e74c3c;");
+    detailsLayout->addWidget(priceLabel);
+    
+    detailsLayout->addStretch();
+    offerLayout->addLayout(detailsLayout);
+    
+    // Actions
+    QVBoxLayout* actionsLayout = new QVBoxLayout();
+    actionsLayout->addStretch();
+    
+    QPushButton* bookButton = new QPushButton("Rezervă Acum");
+    bookButton->setStyleSheet("background-color: #27ae60; color: white; font-weight: bold;");
+    connect(bookButton, &QPushButton::clicked, [this, offer_id = offer.id, offer_name = offer.name]() {
+        // TODO: Open booking dialog
+        QMessageBox::information(this, "Rezervare", 
+            QString("Rezervare pentru oferta: %1").arg(offer_name));
+    });
+    actionsLayout->addWidget(bookButton);
+    
+    QPushButton* detailsButton = new QPushButton("Detalii");
+    actionsLayout->addWidget(detailsButton);
+    
+    offerLayout->addLayout(actionsLayout);
+    
+    return offerCard;
+}
+
+QWidget* Main_Window::create_reservation_card(const Reservation_Model::Reservation& reservation)
+{
+    QWidget* reservationCard = new QWidget();
+    reservationCard->setFixedHeight(120);
+    reservationCard->setStyleSheet(
+        "QWidget { "
+        "background-color: white; "
+        "border: 1px solid #e0e0e0; "
+        "border-radius: 8px; "
+        "margin: 5px; "
+        "} "
+        "QWidget:hover { "
+        "border-color: #4a90e2; "
+        "box-shadow: 0 2px 8px rgba(0,0,0,0.1); "
+        "}"
+    );
+    
+    QHBoxLayout* reservationLayout = new QHBoxLayout(reservationCard);
+    
+    // Reservation details
+    QVBoxLayout* detailsLayout = new QVBoxLayout();
+    
+    QLabel* titleLabel = new QLabel(reservation.offer_name);
+    titleLabel->setStyleSheet("font-weight: bold; font-size: 16px;");
+    detailsLayout->addWidget(titleLabel);
+    
+    QLabel* destinationLabel = new QLabel(QString("Destinație: %1").arg(reservation.destination));
+    detailsLayout->addWidget(destinationLabel);
+    
+    QLabel* statusLabel = new QLabel(QString("Status: %1").arg(reservation.status));
+    statusLabel->setStyleSheet("color: #7f8c8d;");
+    detailsLayout->addWidget(statusLabel);
+    
+    detailsLayout->addStretch();
+    reservationLayout->addLayout(detailsLayout);
+    
+    // Actions
+    QVBoxLayout* actionsLayout = new QVBoxLayout();
+    actionsLayout->addStretch();
+    
+    if (reservation.status == "Confirmed") {
+        QPushButton* cancelButton = new QPushButton("Anulează");
+        cancelButton->setStyleSheet("background-color: #e74c3c; color: white; font-weight: bold;");
+        connect(cancelButton, &QPushButton::clicked, [this, reservation_id = reservation.id]() {
+            m_reservation_model->cancel_reservation(reservation_id);
+        });
+        actionsLayout->addWidget(cancelButton);
+    }
+    
+    reservationLayout->addLayout(actionsLayout);
+    
+    return reservationCard;
+}
+
+QWidget* Main_Window::create_offer_card(const int offer_index)
+{
+    if (!m_offer_model || offer_index < 0 || offer_index >= m_offer_model->get_offer_count()) {
+        return nullptr;
+    }
+    
+    Offer_Model::Offer offer = m_offer_model->get_offer(offer_index);
+    return create_offer_card(offer);
+}
+
+QWidget* Main_Window::create_reservation_card(const int reservation_index)
+{
+    if (!m_reservation_model || reservation_index < 0 || reservation_index >= m_reservation_model->get_reservation_count()) {
+        return nullptr;
+    }
+    
+    Reservation_Model::Reservation reservation = m_reservation_model->get_reservation(reservation_index);
+    return create_reservation_card(reservation);
 }
 

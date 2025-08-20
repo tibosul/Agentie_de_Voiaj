@@ -116,20 +116,20 @@ void Reservation_Controller::update_reservation_status(int reservation_id, const
     }
 }
 
-const QVector<ReservationData>& Reservation_Controller::get_reservations() const
+const QVector<Reservation_Data>& Reservation_Controller::get_reservations() const
 {
     return m_reservations;
 }
 
-ReservationData Reservation_Controller::get_reservation_by_id(int id) const
+Reservation_Data Reservation_Controller::get_reservation_by_id(int id) const
 {
     auto it = std::find_if(m_reservations.begin(), m_reservations.end(),
-                          [id](const ReservationData& res) { return res.id == id; });
+                          [id](const Reservation_Data& res) { return res.id == id; });
     
     if (it != m_reservations.end()) {
         return *it;
     }
-    return ReservationData();
+    return Reservation_Data();
 }
 
 int Reservation_Controller::get_reservation_count() const
@@ -151,14 +151,14 @@ double Reservation_Controller::get_total_spent() const
 int Reservation_Controller::get_total_reservations_count() const
 {
     return std::count_if(m_reservations.begin(), m_reservations.end(),
-                        [](const ReservationData& res) {
+                        [](const Reservation_Data& res) {
                             return res.status == "confirmed" || res.status == "paid";
                         });
 }
 
-QVector<ReservationData> Reservation_Controller::get_reservations_by_status(const QString& status) const
+QVector<Reservation_Data> Reservation_Controller::get_reservations_by_status(const QString& status) const
 {
-    QVector<ReservationData> filtered;
+    QVector<Reservation_Data> filtered;
     for (const auto& reservation : m_reservations) {
         if (reservation.status == status) {
             filtered.append(reservation);
@@ -191,7 +191,7 @@ void Reservation_Controller::on_reservations_received(const QJsonArray& reservat
     
     for (const auto& value : reservations) {
         if (value.isObject()) {
-            ReservationData reservation = reservation_from_json(value.toObject());
+            Reservation_Data reservation = reservation_from_json(value.toObject());
             if (reservation.id > 0) {
                 m_reservations.append(reservation);
             }
@@ -225,9 +225,9 @@ void Reservation_Controller::on_cancellation_failed(const QString& error)
     emit error_occurred("Anularea a euat: " + error);
 }
 
-ReservationData Reservation_Controller::reservation_from_json(const QJsonObject& jsonObj) const
+Reservation_Data Reservation_Controller::reservation_from_json(const QJsonObject& jsonObj) const
 {
-    ReservationData reservation;
+    Reservation_Data reservation;
     
     reservation.id = jsonObj["Reservation_ID"].toString().toInt();
     reservation.userId = jsonObj["User_ID"].toString().toInt();

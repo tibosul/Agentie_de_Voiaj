@@ -1,7 +1,7 @@
 #pragma once
 #include <QString>
 
-struct ReservationData
+struct Reservation_Data
 {
     int id = 0;
     int userId = 0;

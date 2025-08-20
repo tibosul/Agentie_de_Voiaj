@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <winsock2.h>
 
+#include <nlohmann/json.hpp>
 #include "config.h"
 #include "utils/utils.h"
 

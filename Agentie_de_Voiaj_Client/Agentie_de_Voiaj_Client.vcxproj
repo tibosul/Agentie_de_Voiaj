@@ -94,7 +94,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\controllers\Reservation_Controller.cpp" />
     <ClCompile Include="src\models\Destination_Model.cpp" />
+    <ClCompile Include="src\models\Offer_Model.cpp" />
+    <ClCompile Include="src\models\Reservation_Model.cpp" />
     <ClCompile Include="src\models\User_Model.cpp" />
     <ClCompile Include="src\network\Api_Client.cpp" />
     <ClCompile Include="src\ui\Booking_Dialog.cpp" />
@@ -111,8 +114,13 @@
     <QtMoc Include="include\ui\Destination_Card.h" />
     <QtMoc Include="include\ui\Offer_Card.h" />
     <QtMoc Include="include\ui\Booking_Dialog.h" />
+    <QtMoc Include="include\controllers\Reservation_Controller.h" />
+    <ClInclude Include="include\models\Booking_Data.h" />
     <ClInclude Include="include\models\Offer_Data.h" />
     <QtMoc Include="include\ui\Settings_Dialog.h" />
+    <QtMoc Include="include\models\Offer_Model.h" />
+    <ClInclude Include="include\models\Reservation_Data.h" />
+    <QtMoc Include="include\models\Reservation_Model.h" />
     <ClInclude Include="include\utils\Logger.h" />
     <ClInclude Include="include\utils\Style_Manager.h" />
     <QtMoc Include="include\core\Application.h" />

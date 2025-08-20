@@ -109,6 +109,31 @@ int User_Model::get_user_id() const
     return m_user_data.id;
 }
 
+QString User_Model::get_email() const
+{
+    return m_user_data.email;
+}
+
+QString User_Model::get_first_name() const
+{
+    return m_user_data.first_name;
+}
+
+QString User_Model::get_last_name() const
+{
+    return m_user_data.last_name;
+}
+
+QString User_Model::get_phone() const
+{
+    return m_user_data.phone_number;
+}
+
+void User_Model::refresh_user_info()
+{
+    refresh_user_data();
+}
+
 void User_Model::save_login_state()
 {
     if (m_remember_me && m_user_data.is_authenticated)

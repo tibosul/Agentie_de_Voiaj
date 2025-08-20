@@ -5,6 +5,7 @@
 #include <QSettings>
 #include <QJsonObject>
 #include <memory>
+#include "User_Data.h"
 
 class User_Model : public QObject
 {
@@ -13,30 +14,6 @@ class User_Model : public QObject
 public:
     explicit User_Model(QObject* parent = nullptr);
     ~User_Model();
-
-    struct User_Data
-    {
-        int id = 0;
-        QString username;
-        QString email;
-        QString first_name;
-        QString last_name;
-        QString phone_number;
-        QDateTime last_login;
-        bool is_authenticated = false;
-
-        void clear()
-        {
-            id = 0;
-            username.clear();
-            email.clear();
-            first_name.clear();
-            last_name.clear();
-            phone_number.clear();
-            last_login = QDateTime();
-            is_authenticated = false;
-        }
-    };
 
     void login(const QString& username, const QString& password);
     void register_user(const QString& username, const QString& password, const QString& email,
@@ -52,6 +29,11 @@ public:
     QString get_display_name() const;
     QString get_username() const;
     int get_user_id() const;
+    QString get_email() const;
+    QString get_first_name() const;
+    QString get_last_name() const;
+    QString get_phone() const;
+    void refresh_user_info();
 
     void save_login_state();
     void load_login_state();

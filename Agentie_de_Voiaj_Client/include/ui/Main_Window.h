@@ -10,10 +10,14 @@
 #include <QMenuBar>
 #include <QStatusBar>
 #include <QProgressBar>
+#include <QGroupBox>
+#include <QGridLayout>
 #include <memory>
 
-class User_Model;
-class Destination_Model;
+#include "models/User_Model.h"
+#include "models/Destination_Model.h"
+#include "models/Offer_Model.h"
+#include "models/Reservation_Model.h"
 class QPropertyAnimation;
 
 QT_BEGIN_NAMESPACE
@@ -44,6 +48,9 @@ private slots:
     void on_authentication_status_changed(bool is_authenticated);
 
     void on_destinations_loaded();
+    void on_offers_loaded();
+    void on_reservations_loaded();
+    void on_user_info_updated();
 
 private:
     void setup_ui();
@@ -63,6 +70,16 @@ private:
 
     void animate_tab_change();
     void show_loading_indicator(bool show);
+    
+    // UI refresh methods
+    void refresh_offers_display();
+    void refresh_reservations_display();
+    
+    // Card creation methods
+    QWidget* create_offer_card(const int offer_index);
+    QWidget* create_reservation_card(const int reservation_index);
+    QWidget* create_offer_card(const Offer_Model::Offer& offer);
+    QWidget* create_reservation_card(const Reservation_Model::Reservation& reservation);
 
     QWidget* m_central_widget;
     QTabWidget* m_tab_widget;
@@ -94,8 +111,37 @@ private:
     QPushButton* m_user_menu_button;
     QPushButton* m_theme_toggle_button;
 
+    // Models
     std::unique_ptr<User_Model> m_user_model;
     std::unique_ptr<Destination_Model> m_destination_model;
+    std::unique_ptr<Offer_Model> m_offer_model;
+    std::unique_ptr<Reservation_Model> m_reservation_model;
+
+    // Offers tab UI references
+    QWidget* m_offers_container;
+    QVBoxLayout* m_offers_container_layout;
+    QLabel* m_offers_loading_label;
+    QLabel* m_offers_no_offers_label;
+
+    // Reservations tab UI references
+    QWidget* m_reservations_auth_widget;
+    QScrollArea* m_reservations_scroll_area;
+    QWidget* m_reservations_container;
+    QVBoxLayout* m_reservations_container_layout;
+    QLabel* m_reservations_loading_label;
+    QLabel* m_reservations_no_reservations_label;
+
+    // Profile tab UI references
+    QWidget* m_profile_auth_widget;
+    QWidget* m_profile_form_widget;
+    QLineEdit* m_profile_username_edit;
+    QLineEdit* m_profile_email_edit;
+    QLineEdit* m_profile_first_name_edit;
+    QLineEdit* m_profile_last_name_edit;
+    QLineEdit* m_profile_phone_edit;
+    QPushButton* m_profile_edit_button;
+    QPushButton* m_profile_save_button;
+    QPushButton* m_profile_cancel_button;
 
     std::unique_ptr<QPropertyAnimation> m_tab_animation;
 
