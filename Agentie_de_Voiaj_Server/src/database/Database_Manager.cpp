@@ -220,11 +220,6 @@ Database::Query_Result Database::Database_Manager::execute_query(const std::stri
     
     if (upper_query.find("SELECT") == 0)
     {
-        return process_select_result();
-    }
-    
-    if (upper_query.find("SELECT") == 0)
-    {
         return process_select_result(sqlQuery);
     }
     else
@@ -284,6 +279,8 @@ Database::Query_Result Database::Database_Manager::process_select_result(QSqlQue
     result.type = Result_Type::SUCCESS;
     result.affected_rows = result.data.size();
     return result;
+}
+
 // Process non-SELECT result
 Database::Query_Result Database::Database_Manager::process_execution_result(QSqlQuery& query)
 {

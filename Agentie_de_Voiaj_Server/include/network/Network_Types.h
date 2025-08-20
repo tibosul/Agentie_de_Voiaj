@@ -4,10 +4,6 @@
 #include <atomic>
 #include <functional>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <winsock2.h>
-
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include "config.h"
@@ -34,7 +30,7 @@ namespace SocketNetwork
 
 	struct Client_Info
 	{
-		SOCKET socket;
+		int socket_descriptor; // Use int instead of SOCKET for Qt compatibility
 		std::string ip_address;
 		int port;
 		std::string connection_time;
@@ -43,8 +39,8 @@ namespace SocketNetwork
 		int user_id = 0;
 		std::string username;
 
-		Client_Info(SOCKET s, const std::string& ip, int p)
-			: socket(s), ip_address(ip), port(p)
+		Client_Info(int socket_desc, const std::string& ip, int p)
+			: socket_descriptor(socket_desc), ip_address(ip), port(p)
 		{
 			connection_time = Utils::DateTime::get_current_date_time();
 			last_activity_time = connection_time;
@@ -112,61 +108,46 @@ namespace SocketNetwork
 		}
 	};
 
-	class SocketRAII
+	// Qt manages socket resources automatically, so we just need socket descriptor storage
+	class SocketWrapper
 	{
 	private:
-		SOCKET socket;
+		int socket_descriptor;
 	public:
-		explicit SocketRAII(SOCKET s = INVALID_SOCKET) : socket(s) {}
-		~SocketRAII()
-		{
-			if(socket != INVALID_SOCKET)
-			{
-				closesocket(socket);
-				socket = INVALID_SOCKET;
-			}
-		}
+		explicit SocketWrapper(int socket_desc = -1) : socket_descriptor(socket_desc) {}
+		~SocketWrapper() = default; // Qt handles cleanup
 
-		SocketRAII(const SocketRAII&) = delete;
-		SocketRAII& operator=(const SocketRAII&) = delete;
+		SocketWrapper(const SocketWrapper&) = delete;
+		SocketWrapper& operator=(const SocketWrapper&) = delete;
 
-		SocketRAII(SocketRAII&& other) noexcept : socket(other.socket)
+		SocketWrapper(SocketWrapper&& other) noexcept : socket_descriptor(other.socket_descriptor)
 		{
-			other.socket = INVALID_SOCKET;
+			other.socket_descriptor = -1;
 		}
-		SocketRAII& operator=(SocketRAII&& other) noexcept
+		SocketWrapper& operator=(SocketWrapper&& other) noexcept
 		{
 			if (this != &other)
 			{
-				if (socket != INVALID_SOCKET)
-				{
-					closesocket(socket);
-				}
-				socket = other.socket;
-				other.socket = INVALID_SOCKET;
+				socket_descriptor = other.socket_descriptor;
+				other.socket_descriptor = -1;
 			}
 			return *this;
 		}
 
-		operator SOCKET() const	{ return socket; }
-		bool is_valid() const { return socket != INVALID_SOCKET; }
+		operator int() const { return socket_descriptor; }
+		bool is_valid() const { return socket_descriptor >= 0; }
 
-		void reset(SOCKET s = INVALID_SOCKET)
+		void reset(int socket_desc = -1)
 		{
-			if (socket != INVALID_SOCKET)
-			{
-				closesocket(socket);
-			}
-			socket = s;
+			socket_descriptor = socket_desc;
 		}
 
-		SOCKET release()
+		int release()
 		{
-			SOCKET temp = socket;
-			socket = INVALID_SOCKET;
+			int temp = socket_descriptor;
+			socket_descriptor = -1;
 			return temp;
 		}
-
 	};
 
 	// Forward declarations

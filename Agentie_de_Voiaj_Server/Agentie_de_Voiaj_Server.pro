@@ -7,6 +7,9 @@ CONFIG -= app_bundle
 TARGET = Agentie_de_Voiaj_Server
 TEMPLATE = app
 
+# Enable moc for Q_OBJECT
+CONFIG += qt
+
 # Define output directory
 CONFIG(debug, debug|release) {
     DESTDIR = $$PWD/debug
@@ -58,5 +61,5 @@ macx {
 
 # Define version and build info
 DEFINES += \
-    APP_VERSION=\\\"1.0.0\\\" \
-    APP_NAME=\\\"Agentie_de_Voiaj_Server\\\"
+    APP_VERSION_STR=\\\"1.0.0\\\" \
+    APP_NAME_STR=\\\"Agentie_de_Voiaj_Server\\\"
